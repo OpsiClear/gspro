@@ -1,6 +1,5 @@
 """Tests for SH and RGB conversion functions."""
 
-import pytest
 import torch
 
 from gslut import SH_C0, get_sh_c0_constant, rgb2sh, sh2rgb

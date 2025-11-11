@@ -114,19 +114,13 @@ class TestColorLUT:
         # Desaturate (should make colors more gray)
         desaturated = color_lut.apply(colors, saturation=0.0)
         # All channels should be equal (grayscale)
-        assert torch.allclose(
-            desaturated[:, 0], desaturated[:, 1], atol=0.01
-        )
-        assert torch.allclose(
-            desaturated[:, 1], desaturated[:, 2], atol=0.01
-        )
+        assert torch.allclose(desaturated[:, 0], desaturated[:, 1], atol=0.01)
+        assert torch.allclose(desaturated[:, 1], desaturated[:, 2], atol=0.01)
 
         # Over-saturate
         saturated = color_lut.apply(colors, saturation=2.0)
         # Colors should be more extreme
-        assert torch.sum(torch.abs(saturated - 0.5)) > torch.sum(
-            torch.abs(colors - 0.5)
-        )
+        assert torch.sum(torch.abs(saturated - 0.5)) > torch.sum(torch.abs(colors - 0.5))
 
     def test_apply_shadows_highlights(self, device):
         """Test shadows and highlights adjustment."""

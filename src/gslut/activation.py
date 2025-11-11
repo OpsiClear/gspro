@@ -24,7 +24,6 @@ Accuracy (2048 clusters, linear interpolation):
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional
 
 import torch
 import torch.nn.functional as F
@@ -73,14 +72,14 @@ class ActivationLUT:
         self.use_linear_interp = use_linear_interp
 
         # LUT data structures
-        self.exp_centers: Optional[torch.Tensor] = None
-        self.exp_values: Optional[torch.Tensor] = None
+        self.exp_centers: torch.Tensor | None = None
+        self.exp_values: torch.Tensor | None = None
 
-        self.sigmoid_centers: Optional[torch.Tensor] = None
-        self.sigmoid_values: Optional[torch.Tensor] = None
+        self.sigmoid_centers: torch.Tensor | None = None
+        self.sigmoid_values: torch.Tensor | None = None
 
-        self.quat_centers: Optional[torch.Tensor] = None
-        self.quat_values: Optional[torch.Tensor] = None
+        self.quat_centers: torch.Tensor | None = None
+        self.quat_values: torch.Tensor | None = None
 
         # Load LUT if available
         self.is_loaded = False
@@ -158,13 +157,9 @@ class ActivationLUT:
         x_flat = x.reshape(-1)
 
         if self.use_linear_interp:
-            result = self._linear_interp_lookup(
-                x_flat, self.exp_centers, self.exp_values
-            )
+            result = self._linear_interp_lookup(x_flat, self.exp_centers, self.exp_values)
         else:
-            result = self._nearest_neighbor_lookup(
-                x_flat, self.exp_centers, self.exp_values
-            )
+            result = self._nearest_neighbor_lookup(x_flat, self.exp_centers, self.exp_values)
 
         return result.reshape(original_shape)
 
@@ -186,9 +181,7 @@ class ActivationLUT:
         x_flat = x.reshape(-1)
 
         if self.use_linear_interp:
-            result = self._linear_interp_lookup(
-                x_flat, self.sigmoid_centers, self.sigmoid_values
-            )
+            result = self._linear_interp_lookup(x_flat, self.sigmoid_centers, self.sigmoid_values)
         else:
             result = self._nearest_neighbor_lookup(
                 x_flat, self.sigmoid_centers, self.sigmoid_values
@@ -233,9 +226,9 @@ class ActivationLUT:
 
     def build_from_samples(
         self,
-        scale_samples: Optional[torch.Tensor] = None,
-        opacity_samples: Optional[torch.Tensor] = None,
-        quat_samples: Optional[torch.Tensor] = None,
+        scale_samples: torch.Tensor | None = None,
+        opacity_samples: torch.Tensor | None = None,
+        quat_samples: torch.Tensor | None = None,
     ) -> None:
         """
         Build LUT clusters from provided samples.
@@ -298,7 +291,7 @@ class ActivationLUT:
             )
             logger.info("[ActivationLUT] Saved quat LUT")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get LUT statistics."""
         stats = {
             "is_loaded": self.is_loaded,

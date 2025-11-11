@@ -3,7 +3,6 @@
 import pytest
 import torch
 import torch.nn.functional as F
-from pathlib import Path
 
 from gslut import ActivationLUT
 
@@ -135,9 +134,7 @@ class TestActivationLUT:
         true_result = torch.exp(test_values)
 
         # Check relative error
-        relative_error = torch.abs(lut_result - true_result) / (
-            torch.abs(true_result) + 1e-6
-        )
+        relative_error = torch.abs(lut_result - true_result) / (torch.abs(true_result) + 1e-6)
         mean_error = relative_error.mean()
 
         # Should be very accurate with linear interpolation
@@ -186,9 +183,7 @@ class TestActivationLUT:
         true_result = torch.exp(test_values)
 
         # Accuracy should be lower than linear interpolation
-        relative_error = torch.abs(lut_result - true_result) / (
-            torch.abs(true_result) + 1e-6
-        )
+        relative_error = torch.abs(lut_result - true_result) / (torch.abs(true_result) + 1e-6)
         mean_error = relative_error.mean()
 
         # Should still be reasonably accurate
@@ -197,9 +192,7 @@ class TestActivationLUT:
     def test_save_and_load_lut(self, temp_dir):
         """Test saving and loading LUT."""
         # Create and build LUT
-        lut1 = ActivationLUT(
-            lut_dir=temp_dir, num_clusters_exp=64, device="cpu"
-        )
+        lut1 = ActivationLUT(lut_dir=temp_dir, num_clusters_exp=64, device="cpu")
 
         samples = torch.randn(1000)
         lut1.build_from_samples(scale_samples=samples)

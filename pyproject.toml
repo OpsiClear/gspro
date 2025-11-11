@@ -74,7 +74,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+ignore = ["E501", "N812"]  # N812: Allow lowercase imports as uppercase (e.g., 'import torch.nn.functional as F')
 
 [tool.ruff.format]
 quote-style = "double"

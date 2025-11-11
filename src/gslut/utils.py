@@ -8,9 +8,7 @@ operations used by LUT classes.
 import torch
 
 
-def linear_interp_1d(
-    x: torch.Tensor, centers: torch.Tensor, values: torch.Tensor
-) -> torch.Tensor:
+def linear_interp_1d(x: torch.Tensor, centers: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
     """
     Perform 1D linear interpolation using sorted cluster centers.
 
@@ -105,9 +103,7 @@ def build_kmeans_clusters(
 
     samples_np = samples.cpu().numpy()
 
-    kmeans = MiniBatchKMeans(
-        n_clusters=num_clusters, random_state=random_state, batch_size=10000
-    )
+    kmeans = MiniBatchKMeans(n_clusters=num_clusters, random_state=random_state, batch_size=10000)
     kmeans.fit(samples_np)
 
     centers = torch.from_numpy(kmeans.cluster_centers_).float()

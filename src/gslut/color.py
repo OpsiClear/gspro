@@ -12,7 +12,6 @@ CPU Optimization: Uses NumPy for 2-3x faster LUT operations on CPU
 """
 
 import logging
-from typing import Dict, Optional
 
 import numpy as np
 import torch
@@ -54,17 +53,15 @@ class ColorLUT:
         self.use_numpy = device == "cpu"
 
         # Three 1D LUTs for R, G, B channels
-        self.r_lut: Optional[np.ndarray | torch.Tensor] = None
-        self.g_lut: Optional[np.ndarray | torch.Tensor] = None
-        self.b_lut: Optional[np.ndarray | torch.Tensor] = None
+        self.r_lut: np.ndarray | torch.Tensor | None = None
+        self.g_lut: np.ndarray | torch.Tensor | None = None
+        self.b_lut: np.ndarray | torch.Tensor | None = None
 
         # Cache parameters to detect changes
-        self._cached_params: Optional[Dict] = None
+        self._cached_params: dict | None = None
 
         if self.use_numpy:
-            logger.info(
-                f"[ColorLUT] Initialized with {lut_size} bins per channel (NumPy CPU mode)"
-            )
+            logger.info(f"[ColorLUT] Initialized with {lut_size} bins per channel (NumPy CPU mode)")
         else:
             logger.info(f"[ColorLUT] Initialized with {lut_size} bins per channel")
 
@@ -255,9 +252,9 @@ class ColorLUT:
             return colors
 
         # Calculate luminance for masking
-        luminance = (
-            0.299 * colors[:, 0] + 0.587 * colors[:, 1] + 0.114 * colors[:, 2]
-        ).unsqueeze(1)
+        luminance = (0.299 * colors[:, 0] + 0.587 * colors[:, 1] + 0.114 * colors[:, 2]).unsqueeze(
+            1
+        )
 
         # Create masks
         shadow_mask = (luminance < 0.5).float()
