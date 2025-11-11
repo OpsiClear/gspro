@@ -239,6 +239,24 @@ ruff check src/ tests/
 ruff check --fix src/ tests/
 ```
 
+### Performance Benchmarks
+
+Comprehensive benchmarks comparing NumPy, PyTorch, torch.compile, CPU, and GPU:
+
+```bash
+cd benchmarks
+
+# Run all benchmarks
+python run_all_benchmarks.py
+
+# Run individual benchmarks
+python benchmark_color_lut.py
+python benchmark_activation_lut.py
+python benchmark_conversions.py
+```
+
+See [benchmarks/README.md](benchmarks/README.md) for details and [benchmarks/BENCHMARK_RESULTS.md](benchmarks/BENCHMARK_RESULTS.md) for expected performance characteristics.
+
 ## Contributing
 
 Contributions are welcome! Please:
