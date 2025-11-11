@@ -230,13 +230,13 @@ pytest tests/ -v
 
 ```bash
 # Format code
-black src/ tests/
+ruff format src/ tests/
 
 # Lint
 ruff check src/ tests/
 
-# Type check
-mypy src/
+# Fix linting issues automatically
+ruff check --fix src/ tests/
 ```
 
 ## Contributing
