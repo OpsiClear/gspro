@@ -32,23 +32,8 @@ import logging
 
 import numpy as np
 
-# Import Numba operations for optimization (REQUIRED)
-try:
-    from gspro.numba_ops import (
-        NUMBA_AVAILABLE,
-        fused_color_pipeline_interleaved_lut_numba,
-    )
-
-    if not NUMBA_AVAILABLE or fused_color_pipeline_interleaved_lut_numba is None:
-        raise ImportError(
-            "Numba is required for gspro color processing. "
-            "Install with: pip install numba"
-        )
-except ImportError as e:
-    raise ImportError(
-        f"Failed to import required Numba operations: {e}\n"
-        "Numba is required for gspro. Install with: pip install numba"
-    ) from e
+# Import Numba kernels for optimization (REQUIRED)
+from gspro.color.kernels import fused_color_pipeline_interleaved_lut_numba
 
 logger = logging.getLogger(__name__)
 

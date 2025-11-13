@@ -11,10 +11,9 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
-import torch
 
-from gslut.color import ColorLUT
-from gslut.transforms import transform
+from gspro.color import ColorLUT
+from gspro.transform import transform
 
 
 class Pipeline:
@@ -173,9 +172,6 @@ class Pipeline:
             - 'quaternions': orientations [N, 4] (optional)
             - 'scales': sizes [N, 3] (optional)
         """
-        # Track original type for preservation
-        input_was_numpy = isinstance(data, np.ndarray)
-
         # Copy dict to avoid modifying input
         if isinstance(data, dict):
             result = data.copy()
@@ -205,10 +201,7 @@ class Pipeline:
                 # Simple functions (color adjustments, custom)
                 result = func(result, **kwargs) if kwargs else func(result)
 
-        # Preserve input type (ColorLUT may convert numpy -> torch)
-        if input_was_numpy and isinstance(result, torch.Tensor):
-            result = result.cpu().numpy()
-
+        # ColorLUT always returns NumPy arrays
         return result
 
     def reset(self) -> "Pipeline":
@@ -273,7 +266,7 @@ class ColorPreset:
         self.device = device
         self._lut = ColorLUT(device=device)
 
-    def apply(self, colors: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
+    def apply(self, colors: np.ndarray) -> np.ndarray:
         """
         Apply preset to colors.
 
@@ -283,14 +276,8 @@ class ColorPreset:
         Returns:
             Adjusted colors [N, 3] (same type as input)
         """
-        input_was_numpy = isinstance(colors, np.ndarray)
-        result = self._lut.apply(colors, **self.params)
-
-        # Preserve input type
-        if input_was_numpy and isinstance(result, torch.Tensor):
-            result = result.cpu().numpy()
-
-        return result
+        # ColorLUT always returns NumPy arrays
+        return self._lut.apply(colors, **self.params)
 
     def to_pipeline(self) -> Pipeline:
         """
@@ -409,7 +396,7 @@ class ColorPreset:
 
 
 def adjust_colors(
-    data: np.ndarray | torch.Tensor,
+    data: np.ndarray,
     temperature: float = 0.5,
     brightness: float = 1.0,
     contrast: float = 1.0,
@@ -418,7 +405,7 @@ def adjust_colors(
     shadows: float = 1.0,
     highlights: float = 1.0,
     device: str = "cpu",
-) -> np.ndarray | torch.Tensor:
+) -> np.ndarray:
     """
     High-level function for color adjustments.
 
@@ -440,11 +427,9 @@ def adjust_colors(
         >>> # Apply color adjustments
         >>> adjusted = adjust_colors(rgb_colors, brightness=1.2, contrast=1.1)
     """
-    input_was_numpy = isinstance(data, np.ndarray)
-
-    # Apply color adjustments
+    # Apply color adjustments (ColorLUT always returns NumPy arrays)
     lut = ColorLUT(device=device)
-    result = lut.apply(
+    return lut.apply(
         data,
         temperature=temperature,
         brightness=brightness,
@@ -455,18 +440,12 @@ def adjust_colors(
         highlights=highlights,
     )
 
-    # Preserve input type
-    if input_was_numpy and isinstance(result, torch.Tensor):
-        result = result.cpu().numpy()
-
-    return result
-
 
 def apply_preset(
-    data: np.ndarray | torch.Tensor,
+    data: np.ndarray,
     preset: str | ColorPreset,
     device: str = "cpu",
-) -> np.ndarray | torch.Tensor:
+) -> np.ndarray:
     """
     Apply color preset to RGB colors.
 

@@ -4,9 +4,8 @@ Tests for high-level pipeline API.
 
 import numpy as np
 import pytest
-import torch
 
-from gslut import ColorPreset, Pipeline, adjust_colors, apply_preset
+from gspro import ColorPreset, Pipeline, adjust_colors, apply_preset
 
 
 @pytest.fixture
@@ -93,17 +92,6 @@ def test_pipeline_reset(sample_colors):
     assert not np.allclose(result1, result2)
 
 
-def test_pipeline_pytorch(sample_colors):
-    """Test pipeline with PyTorch tensors."""
-    colors_torch = torch.from_numpy(sample_colors)
-    pipeline = Pipeline().adjust_colors(brightness=1.2)
-
-    result = pipeline(colors_torch)
-
-    assert isinstance(result, torch.Tensor)
-    assert result.shape == colors_torch.shape
-
-
 # ============================================================================
 # ColorPreset Tests
 # ============================================================================
@@ -182,17 +170,6 @@ def test_preset_to_pipeline(sample_colors):
     assert result.shape == sample_colors.shape
 
 
-def test_preset_pytorch(sample_colors):
-    """Test preset with PyTorch tensors."""
-    colors_torch = torch.from_numpy(sample_colors)
-    preset = ColorPreset.warm()
-
-    result = preset.apply(colors_torch)
-
-    assert isinstance(result, torch.Tensor)
-    assert result.shape == colors_torch.shape
-
-
 # ============================================================================
 # High-level Functional API Tests
 # ============================================================================
@@ -204,14 +181,6 @@ def test_adjust_colors_basic(sample_colors):
 
     assert result.shape == sample_colors.shape
     assert isinstance(result, np.ndarray)
-
-
-def test_adjust_colors_pytorch(sample_colors):
-    """Test adjust_colors with PyTorch."""
-    colors_torch = torch.from_numpy(sample_colors)
-    result = adjust_colors(colors_torch, brightness=1.2)
-
-    assert isinstance(result, torch.Tensor)
 
 
 def test_apply_preset_by_name(sample_colors):
@@ -287,23 +256,3 @@ def test_multiple_presets_comparison(sample_colors):
 
     # Results should be different
     assert not np.allclose(results["warm"], results["cool"])
-
-
-def test_pipeline_device_handling():
-    """Test pipeline with different devices."""
-    colors = np.random.rand(100, 3).astype(np.float32)
-
-    # CPU pipeline
-    pipeline_cpu = Pipeline(device="cpu")
-    result_cpu = pipeline_cpu.adjust_colors(brightness=1.2)(colors)
-
-    assert isinstance(result_cpu, np.ndarray)
-
-    # CUDA pipeline (if available)
-    if torch.cuda.is_available():
-        colors_gpu = torch.from_numpy(colors).cuda()
-        pipeline_gpu = Pipeline(device="cuda")
-        result_gpu = pipeline_gpu.adjust_colors(brightness=1.2)(colors_gpu)
-
-        assert isinstance(result_gpu, torch.Tensor)
-        assert result_gpu.device.type == "cuda"

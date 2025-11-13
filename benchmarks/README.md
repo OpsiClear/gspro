@@ -1,6 +1,6 @@
-# gslut Benchmarks
+# gspro Benchmarks
 
-Performance benchmarks for CPU-optimized gslut library.
+Performance benchmarks for high-performance CPU processing library.
 
 ## Quick Start
 
@@ -10,220 +10,190 @@ cd benchmarks
 uv run run_all_benchmarks.py
 
 # Run individual benchmarks
-uv run benchmark_transform.py
 uv run benchmark_color.py
+uv run benchmark_transform.py
+uv run benchmark_filter.py
+
+# Run optimization benchmarks (used in CI/CD)
+uv run benchmark_optimizations.py
+uv run benchmark_filter_micro.py
+
+# Run large-scale benchmarks (1M+ Gaussians)
+uv run benchmark_large_scale.py
 ```
 
-## Benchmarks
+## Active Benchmarks
 
-### 1. Transform Benchmark (`benchmark_transform.py`)
+### 1. Color Processing (`benchmark_color.py`)
+
+Tests color adjustment performance using fused Numba kernels.
+
+**Features:**
+- Interleaved LUT layout for cache locality
+- Fused Phase 1 (LUT) + Phase 2 (saturation/shadows/highlights)
+- Branchless Phase 2 operations (1.8x speedup)
+- Zero-copy API with pre-allocated buffers
+- 7 color operations: temperature, brightness, contrast, gamma, saturation, shadows, highlights
+
+**Tests:**
+- Multiple API variants (apply, apply_numpy, apply_numpy_inplace)
+- Batch size scaling (1K to 1M colors)
+- Speedup comparisons
+
+**Expected Results:**
+- Zero-copy (apply_numpy_inplace): 877-1,011 M colors/sec
+- With allocation (apply_numpy): 195 M colors/sec
+- Standard API (apply): 134 M colors/sec
+
+### 2. 3D Transform (`benchmark_transform.py`)
 
 Tests 3D Gaussian transform performance with fused Numba kernel.
 
 **Features:**
 - Fused kernel: Single parallel loop combining all operations
-- Custom matrix multiply: 9x faster than BLAS for 3x3 matrices
-- Memory locality: Process each Gaussian completely before moving to next
-- Output buffer reuse: Pre-allocated arrays eliminate allocation overhead
+- Custom matrix multiply (9x faster than BLAS for 3x3 matrices)
+- Memory locality: Process each Gaussian completely
+- Pre-allocated output buffers (zero-copy)
 
 **Tests:**
-- 1M Gaussians with 100 iterations (main test)
+- 1M Gaussians with 100 iterations
 - Batch size scaling (10K to 2M)
 - Real-world use cases (animation, real-time rendering)
 
-**Expected results:**
-- Time: ~1.5ms per 1M Gaussians
-- Throughput: 600-700M Gaussians/sec
-- Peak: 1.6-2.3 billion G/s at 500K batch size
+**Expected Results:**
+- Time: 1.479ms for 1M Gaussians
+- Throughput: 676-1,111 M Gaussians/sec
+- Real-time: 676 FPS (11x faster than 60 FPS target)
 
-### 2. Color LUT Benchmark (`benchmark_color.py`)
+### 3. Filtering (`benchmark_filter.py`)
 
-Tests color adjustment performance using separated 1D LUTs.
+Tests Gaussian filtering performance with Numba-optimized kernels.
 
 **Features:**
-- Separated 1D LUTs per channel: 10x faster than sequential operations
-- CPU-optimized via NumPy: 2-3x faster than PyTorch CPU
-- 7 color operations: temperature, brightness, contrast, gamma, saturation, shadows, highlights
+- Numba JIT compilation with parallel execution
+- Volume filters: sphere and cuboid spatial selection
+- Attribute filters: opacity and scale thresholds with fused kernel
+- Combined filtering with AND logic
+- Scene bounds and auto-threshold calculation
+- Optimizations: fastmath=True, fused opacity+scale kernel (1.95x speedup)
 
 **Tests:**
-- Various batch sizes (1K to 1M points)
-- Individual operations
-- Different LUT resolutions (256 to 4096 bins)
+- Individual filters (opacity, scale, sphere, cuboid)
+- Fused filters (opacity+scale combined)
+- Full attribute filtering (filter_gaussians)
+- Batch size scaling (10K to 2M Gaussians)
 
-**Expected results:**
-- Time: ~38ms per 1M colors (CPU)
-- Throughput: 26M colors/sec
-- Individual ops: 30-54M points/sec
+**Expected Results:**
+- Individual filters: 304-733 M Gaussians/sec
+- Fused opacity+scale: 416 M Gaussians/sec
+- Full filtering (filter_gaussians): 54 M Gaussians/sec mean, 77 M/s best case
+- 5x speedup from parallel scatter pattern
 
 ## Performance Summary
 
-### Transform Performance (1M Gaussians)
+### Color Processing (100K colors)
 
-```
-Time:       1.5 ms
-Throughput: 658 M Gaussians/sec
-Max FPS:    633 FPS (1.58ms per frame)
-```
+| API | Time | Throughput | Speedup |
+|-----|------|------------|---------|
+| apply() | 0.747 ms | 134 M/s | 1.00x |
+| apply_numpy() | 0.514 ms | 195 M/s | 1.45x |
+| **apply_numpy_inplace()** | **0.099 ms** | **1,011 M/s** | **7.55x** |
 
-**Batch size scaling:**
+**Batch scaling (apply_numpy_inplace):**
 ```
-   10K:   0.05 ms (185 M G/s)
-  100K:   0.11 ms (936 M G/s)
-  500K:   0.23 ms (2,146 M G/s)  <- Peak performance
-    1M:   1.97 ms (507 M G/s)
-    2M:   5.70 ms (351 M G/s)
-```
-
-### Color LUT Performance (CPU)
-
-```
-     1K:   0.33 ms (3.1 M/s)
-    10K:   0.92 ms (10.9 M/s)
-   100K:   3.37 ms (29.7 M/s)
-     1M:  37.96 ms (26.3 M/s)
+N=    1,000:   0.016 ms (   62 M colors/s)
+N=   10,000:   0.022 ms (  458 M colors/s)
+N=  100,000:   0.100 ms (1,005 M colors/s)
+N=1,000,000:   1.141 ms (  877 M colors/s)
 ```
 
-## Understanding Results
+### 3D Transform (1M Gaussians)
 
-### Performance Metrics
+```
+Time:       1.479 ms
+Throughput: 676 M Gaussians/sec
+Max FPS:    676 FPS
+```
 
-- **ms (milliseconds)**: Time per operation
-- **G/s (Gaussians/sec)**: Throughput for transforms (higher is better)
-- **points/sec**: Throughput for color LUT (higher is better)
+**Batch scaling:**
+```
+N=   10,000:   0.013 ms (  769 M G/s)
+N=  100,000:   0.090 ms (1,111 M G/s)
+N=  500,000:   0.621 ms (  805 M G/s)
+N=1,000,000:   1.479 ms (  676 M G/s)
+N=2,000,000:   3.154 ms (  634 M G/s)
+```
 
-### Key Optimizations
+### Filtering (1M Gaussians)
 
-**Transform:**
-- Fused Numba kernel: Combines all operations in single parallel loop
-- Custom matmul: 9x faster than BLAS for 3x3 matrices
-- Memory locality: Process each Gaussian completely
-- Parallel execution: Distributes work across all CPU cores
+| Operation | Time | Throughput |
+|-----------|------|------------|
+| Scene bounds (one-time) | 1.4 ms | 733 M/s |
+| Recommended scale (one-time) | 6.4 ms | 156 M/s |
+| Sphere filter (with fastmath) | 3.3 ms | 304 M/s |
+| Cuboid filter (with fastmath) | 2.6 ms | 385 M/s |
+| Opacity filter (with fastmath) | 2.3 ms | 444 M/s |
+| Scale filter (with fastmath) | 2.5 ms | 409 M/s |
+| Opacity + Scale (fused kernel) | 2.4 ms | 416 M/s |
+| Full filtering (sphere + fused) | 4.3 ms | 234 M/s |
+| Scatter kernel (parallel) | 4.0 ms | 246 M/s |
+| **filter_gaussians (mean)** | **18.6 ms** | **54 M/s** |
+| **filter_gaussians (best)** | **13.0 ms** | **77 M/s** |
 
-**ColorLUT:**
-- Separated 1D LUTs: One per channel (R, G, B)
-- CPU-optimized: Fast NumPy path for CPU processing
-- LUT caching: Reuse LUTs when parameters unchanged
+## Key Optimizations
+
+**Color Processing:**
+- Interleaved LUT: 1.73x speedup from cache locality
+- Fused pipeline: Phase 1 + Phase 2 in single kernel
+- Branchless Phase 2: Eliminates branch misprediction
+- Zero-copy API: Eliminates 80% allocation overhead
+
+**3D Transform:**
+- Fused kernel: 4-5x faster than separate operations
+- Custom matmul: 9x faster than BLAS for small matrices
+- Single parallel loop: Better memory locality
+- Pre-allocated buffers: Zero allocation overhead
+
+**Filtering:**
+- Numba JIT compilation: ~5x speedup from parallel scatter pattern
+- Fused opacity+scale kernel: 1.95x speedup (combines two filters)
+- fastmath optimization: 5-10% speedup on all kernels
+- Parallel scatter pattern: Lock-free parallel writes via prefix sum
+- Parallel execution: prange for multi-core utilization
+- Optimized bounds calculation: Single-pass min/max
 
 ## System Requirements
 
 - Python 3.10+
 - NumPy 1.24+
-- Numba 0.58+ (for transform optimizations)
-- PyTorch 2.0+ (for color LUT)
+- Numba 0.59+ (required)
 - Multi-core CPU recommended
 - 8GB+ RAM for large batches
 
-## Sample Output
+## Archived Files
 
-### Transform Benchmark
+Historical development files (analysis scripts, old iterations, debug scripts) are in `archive/` directory. See `archive/README.md` for details.
 
-```
-================================================================================
-3D GAUSSIAN TRANSFORM BENCHMARK
-Testing with 1,000,000 Gaussians, 100 iterations
-================================================================================
-
-Results (1M Gaussians):
-  Time:       1.580 ms +/- 0.162 ms
-  Throughput: 632.7M Gaussians/sec
-
-================================================================================
-BATCH SIZE SCALING
-================================================================================
-N=   10,000:   0.05 ms ( 185.2M G/s)
-N=  100,000:   0.11 ms ( 935.9M G/s)
-N=  500,000:   0.23 ms (2146.2M G/s)
-N=1,000,000:   1.97 ms ( 507.2M G/s)
-N=2,000,000:   5.70 ms ( 351.1M G/s)
-```
-
-### Color LUT Benchmark
-
-```
-================================================================================
-COLOR LUT BENCHMARK (CPU)
-================================================================================
-
-Batch Size: 100,000 points
-  Time:       3.373 +/- 0.335 ms
-  Throughput: 29,650,890 points/sec
-
-================================================================================
-INDIVIDUAL OPERATIONS (100K points)
-================================================================================
-
-Temperature only:
-  Time:       1.954 +/- 0.092 ms
-  Throughput: 51,176,627 points/sec
-
-All operations:
-  Time:       3.344 +/- 0.220 ms
-  Throughput: 29,907,275 points/sec
-```
-
-## Interpretation
-
-### Transform Performance
-
-**Optimal batch size: 500K Gaussians**
-- Below 100K: Overhead dominates
-- 100K-500K: Best throughput (1-2 billion G/s)
-- Above 1M: Cache thrashing reduces performance
-
-**Real-world usage:**
-- 1M Gaussians @ 633 FPS: Real-time capable
-- Animation (100 frames): 158ms total
-- Well below 16.67ms target for 60 FPS rendering
-
-### Color LUT Performance
-
-**Throughput characteristics:**
-- Individual ops: 30-54M points/sec
-- All operations: 26-30M points/sec
-- LUT resolution has minimal impact (256-4096)
-
-## Troubleshooting
-
-### Slow Transform Performance
-
-Check Numba installation:
-```bash
-pip install numba
-```
-
-Verify fused kernel is active (should see "Numba available: True" in output).
-
-### Out of Memory
-
-Reduce batch sizes in benchmark scripts:
-```python
-batch_sizes = [10_000, 100_000, 500_000]  # Instead of up to 2M
-```
-
-### Slow Benchmarks
-
-Reduce iterations:
-```python
-NUM_ITERATIONS = 50  # Instead of 100
-```
+**Production use**: Only use benchmarks in this directory, not archived files.
 
 ## Documentation
 
-See detailed performance analysis:
-- `CURRENT_PERFORMANCE_SUMMARY.md`: Comprehensive performance report
-- `FINAL_OPTIMIZATION_SUMMARY.md`: Optimization journey and results
-- `CORRECTNESS_VERIFICATION.md`: Verification of fused kernel correctness
+See project root for detailed documentation:
+- `README.md`: Main project documentation
+- `OPTIMIZATION_COMPLETE_SUMMARY.md`: Complete optimization history
+- `AUDIT_FIXES_SUMMARY.md`: Bug fixes and validation
+- `.github/WORKFLOWS.md`: CI/CD pipeline documentation
 
 ## Contributing
 
 To add a new benchmark:
 
-1. Create `benchmark_<feature>.py`
-2. Follow the existing pattern:
-   - Use `benchmark_function()` helper if needed
-   - Test multiple batch sizes
-   - Print clear, formatted results
-   - Use ASCII characters only (no Unicode)
+1. Create `benchmark_<feature>.py` in this directory
+2. Follow existing patterns:
+   - Warmup iterations (20+)
+   - Multiple batch sizes
+   - Clear formatted output
+   - Pre-allocated buffers when applicable
 3. Add to `run_all_benchmarks.py`
 4. Update this README
 

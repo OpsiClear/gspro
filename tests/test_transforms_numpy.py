@@ -5,7 +5,7 @@ Tests for NumPy implementation of geometric transformation functions.
 import numpy as np
 import pytest
 
-from gslut.transforms import (
+from gspro.transform import (
     axis_angle_to_quaternion,
     euler_to_quaternion,
     quaternion_multiply,

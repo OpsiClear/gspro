@@ -50,8 +50,11 @@ Homepage = "https://github.com/OpsiClear/gspro"
 Repository = "https://github.com/OpsiClear/gspro"
 Issues = "https://github.com/OpsiClear/gspro/issues"
 
-[tool.hatch.build.targets.wheel]
+[tool.hatch.build]
 packages = ["src/gspro"]
+
+[tool.hatch.build.targets.wheel]
+# Include all subpackages (filter, color, etc.)
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

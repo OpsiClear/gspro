@@ -1,14 +1,13 @@
 """
-Utility functions for LUT operations
+Utility functions for LUT operations (NumPy/CPU implementation)
 
-Provides helper functions for linear interpolation and nearest neighbor lookup
-used by LUT classes.
+Provides helper functions for linear interpolation and nearest neighbor lookup.
 """
 
-import torch
+import numpy as np
 
 
-def linear_interp_1d(x: torch.Tensor, centers: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
+def linear_interp_1d(x: np.ndarray, centers: np.ndarray, values: np.ndarray) -> np.ndarray:
     """
     Perform 1D linear interpolation using sorted cluster centers.
 
@@ -21,15 +20,15 @@ def linear_interp_1d(x: torch.Tensor, centers: torch.Tensor, values: torch.Tenso
         Interpolated values [N]
 
     Example:
-        >>> centers = torch.tensor([0.0, 0.5, 1.0])
-        >>> values = torch.tensor([0.0, 0.25, 1.0])
-        >>> x = torch.tensor([0.25, 0.75])
+        >>> centers = np.array([0.0, 0.5, 1.0])
+        >>> values = np.array([0.0, 0.25, 1.0])
+        >>> x = np.array([0.25, 0.75])
         >>> result = linear_interp_1d(x, centers, values)
         >>> print(result)
-        tensor([0.1250, 0.6250])
+        [0.125 0.625]
     """
-    indices = torch.searchsorted(centers, x)
-    indices = indices.clamp(1, len(centers) - 1)
+    indices = np.searchsorted(centers, x)
+    indices = np.clip(indices, 1, len(centers) - 1)
 
     left_idx = indices - 1
     right_idx = indices
@@ -46,8 +45,8 @@ def linear_interp_1d(x: torch.Tensor, centers: torch.Tensor, values: torch.Tenso
 
 
 def nearest_neighbor_1d(
-    x: torch.Tensor, centers: torch.Tensor, values: torch.Tensor
-) -> torch.Tensor:
+    x: np.ndarray, centers: np.ndarray, values: np.ndarray
+) -> np.ndarray:
     """
     Perform 1D nearest neighbor lookup.
 
@@ -60,14 +59,17 @@ def nearest_neighbor_1d(
         Values at nearest neighbors [N]
 
     Example:
-        >>> centers = torch.tensor([0.0, 0.5, 1.0])
-        >>> values = torch.tensor([0.0, 0.25, 1.0])
-        >>> x = torch.tensor([0.1, 0.7])
+        >>> centers = np.array([0.0, 0.5, 1.0])
+        >>> values = np.array([0.0, 0.25, 1.0])
+        >>> x = np.array([0.1, 0.7])
         >>> result = nearest_neighbor_1d(x, centers, values)
         >>> print(result)
-        tensor([0.0000, 0.2500])
+        [0.   0.25]
     """
-    x_expanded = x.unsqueeze(1)
-    distances = torch.cdist(x_expanded, centers.unsqueeze(1))
-    nearest_idx = torch.argmin(distances, dim=1)
+    # Compute distances from each x to each center
+    x_expanded = x[:, np.newaxis]  # [N, 1]
+    centers_expanded = centers[np.newaxis, :]  # [1, K]
+    distances = np.abs(x_expanded - centers_expanded)  # [N, K]
+
+    nearest_idx = np.argmin(distances, axis=1)
     return values[nearest_idx]

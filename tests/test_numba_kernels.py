@@ -7,12 +7,12 @@ Tests correctness and fallback behavior of Numba kernels.
 import numpy as np
 import pytest
 
-from gslut.transforms import _quaternion_multiply_numpy
+from gspro.transform.api import _quaternion_multiply_numpy
 
 
-# Import Numba operations - tests will be skipped if not available
-numba_ops = pytest.importorskip(
-    "gslut.numba_ops",
+# Import Numba kernels - tests will be skipped if not available
+transform_kernels = pytest.importorskip(
+    "gspro.transform.kernels",
     reason="Numba not installed"
 )
 
@@ -29,7 +29,7 @@ class TestNumbaKernels:
 
         # Numba result
         out_numba = np.empty_like(q2)
-        numba_ops.quaternion_multiply_single_numba(q1, q2, out_numba)
+        transform_kernels.quaternion_multiply_single_numba(q1, q2, out_numba)
 
         # NumPy reference (using pure NumPy path)
         q1_2d = q1[np.newaxis, :]
@@ -55,7 +55,7 @@ class TestNumbaKernels:
 
         # Numba result
         out_numba = np.empty_like(q1)
-        numba_ops.quaternion_multiply_batched_numba(q1, q2, out_numba)
+        transform_kernels.quaternion_multiply_batched_numba(q1, q2, out_numba)
 
         # NumPy reference
         w1, x1, y1, z1 = q1[:, 0], q1[:, 1], q1[:, 2], q1[:, 3]
@@ -79,7 +79,7 @@ class TestNumbaKernels:
 
         # Numba result
         out_numba = np.empty_like(points)
-        numba_ops.apply_transform_matrix_numba(points, R, t, out_numba)
+        transform_kernels.apply_transform_matrix_numba(points, R, t, out_numba)
 
         # NumPy reference
         out_numpy = points @ R.T + t
@@ -94,7 +94,7 @@ class TestNumbaKernels:
 
         # Numba result
         out_numba = np.empty_like(arr)
-        numba_ops.elementwise_multiply_scalar_numba(arr, scalar, out_numba)
+        transform_kernels.elementwise_multiply_scalar_numba(arr, scalar, out_numba)
 
         # NumPy reference
         out_numpy = arr * scalar
@@ -109,7 +109,7 @@ class TestNumbaKernels:
 
         # Numba result
         out_numba = np.empty_like(arr)
-        numba_ops.elementwise_multiply_vector_numba(arr, vec, out_numba)
+        transform_kernels.elementwise_multiply_vector_numba(arr, vec, out_numba)
 
         # NumPy reference
         out_numpy = arr * vec
@@ -124,7 +124,7 @@ class TestNumbaKernels:
 
         # Numba result
         out_numba = np.empty_like(arr)
-        numba_ops.elementwise_multiply_vector_numba(arr, vec, out_numba)
+        transform_kernels.elementwise_multiply_vector_numba(arr, vec, out_numba)
 
         # NumPy reference
         out_numpy = arr * vec
@@ -154,7 +154,7 @@ class TestNumbaIntegration:
 
     def test_transform_with_numba(self):
         """Test full transform operation with Numba optimization."""
-        from gslut.transforms import transform
+        from gspro.transform import transform
 
         N = 10000
         means = np.random.randn(N, 3).astype(np.float32)
@@ -215,7 +215,7 @@ class TestNumbaStatus:
 
     def test_get_numba_status(self):
         """Test get_numba_status function."""
-        status = numba_ops.get_numba_status()
+        status = transform_kernels.get_numba_status()
 
         assert isinstance(status, dict)
         assert "available" in status

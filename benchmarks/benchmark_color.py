@@ -1,123 +1,116 @@
 """
-Benchmark ColorLUT performance (CPU).
+Benchmark color processing performance (pure NumPy/Numba, no PyTorch).
 """
 
 import time
 import numpy as np
-import torch
 from gspro import ColorLUT
 
-
-def benchmark_function(func, warmup: int = 10, iterations: int = 100):
-    """Benchmark a function and return average time in milliseconds."""
-    # Warmup
-    for _ in range(warmup):
-        func()
-
-    # Benchmark
-    times = []
-    for _ in range(iterations):
-        start = time.perf_counter()
-        func()
-        times.append((time.perf_counter() - start) * 1000)
-
-    return np.mean(times), np.std(times)
-
+N = 100_000
+NUM_ITERATIONS = 100
 
 print("=" * 80)
-print("COLOR LUT BENCHMARK (CPU)")
+print("COLOR PROCESSING BENCHMARK (NumPy/Numba)")
+print(f"Testing with {N:,} colors, {NUM_ITERATIONS} iterations")
+print("=" * 80)
+
+# Setup
+colors_np = np.random.rand(N, 3).astype(np.float32)
+out_colors_np = np.empty_like(colors_np)
+
+lut = ColorLUT()
+
+# Test parameters
+params = {
+    "temperature": 0.6,
+    "brightness": 1.2,
+    "contrast": 1.1,
+    "saturation": 1.3,
+    "shadows": 1.1,
+    "highlights": 0.9,
+}
+
+# Warmup
+print("\nWarming up...")
+for _ in range(20):
+    lut.apply_numpy_inplace(colors_np, out_colors_np, **params)
+
+# Benchmark apply_numpy_inplace (zero-copy)
+print(f"\nBenchmarking apply_numpy_inplace() - {NUM_ITERATIONS} iterations...")
+times_inplace = []
+for _ in range(NUM_ITERATIONS):
+    start = time.perf_counter()
+    lut.apply_numpy_inplace(colors_np, out_colors_np, **params)
+    times_inplace.append((time.perf_counter() - start) * 1000)
+
+mean_time_inplace = np.mean(times_inplace)
+std_time_inplace = np.std(times_inplace)
+
+print(f"\nResults (apply_numpy_inplace - zero-copy):")
+print(f"  Time:       {mean_time_inplace:.3f} ms +/- {std_time_inplace:.3f} ms")
+print(f"  Throughput: {N/mean_time_inplace*1000/1e6:.0f}M colors/sec")
+
+# Benchmark apply_numpy (with allocation)
+print(f"\nBenchmarking apply_numpy() - {NUM_ITERATIONS} iterations...")
+times_numpy = []
+for _ in range(NUM_ITERATIONS):
+    start = time.perf_counter()
+    result = lut.apply_numpy(colors_np, **params)
+    times_numpy.append((time.perf_counter() - start) * 1000)
+
+mean_time_numpy = np.mean(times_numpy)
+std_time_numpy = np.std(times_numpy)
+
+print(f"\nResults (apply_numpy - with allocation):")
+print(f"  Time:       {mean_time_numpy:.3f} ms +/- {std_time_numpy:.3f} ms")
+print(f"  Throughput: {N/mean_time_numpy*1000/1e6:.0f}M colors/sec")
+
+# Benchmark apply (standard API)
+print(f"\nBenchmarking apply() - {NUM_ITERATIONS} iterations...")
+times_apply = []
+for _ in range(NUM_ITERATIONS):
+    start = time.perf_counter()
+    result = lut.apply(colors_np, **params)
+    times_apply.append((time.perf_counter() - start) * 1000)
+
+mean_time_apply = np.mean(times_apply)
+std_time_apply = np.std(times_apply)
+
+print(f"\nResults (apply - standard API):")
+print(f"  Time:       {mean_time_apply:.3f} ms +/- {std_time_apply:.3f} ms")
+print(f"  Throughput: {N/mean_time_apply*1000/1e6:.0f}M colors/sec")
+
+# Speedup comparison
+print("\n" + "=" * 80)
+print("SPEEDUP COMPARISON")
+print("=" * 80)
+print(f"apply_numpy_inplace vs apply_numpy: {mean_time_numpy/mean_time_inplace:.2f}x faster")
+print(f"apply_numpy_inplace vs apply:       {mean_time_apply/mean_time_inplace:.2f}x faster")
+
+# Test different batch sizes
+print("\n" + "=" * 80)
+print("BATCH SIZE SCALING")
 print("=" * 80)
 
 batch_sizes = [1_000, 10_000, 100_000, 1_000_000]
 
-for batch_size in batch_sizes:
-    print(f"\nBatch Size: {batch_size:,} points")
+for N_test in batch_sizes:
+    colors_test = np.random.rand(N_test, 3).astype(np.float32)
+    out_test = np.empty_like(colors_test)
 
-    # Generate test data
-    colors = torch.rand(batch_size, 3, device="cpu")
+    # Warmup
+    for _ in range(5):
+        lut.apply_numpy_inplace(colors_test, out_test, **params)
 
-    # Create ColorLUT
-    lut = ColorLUT(device="cpu", lut_size=1024)
+    times_test = []
+    for _ in range(20):
+        start = time.perf_counter()
+        lut.apply_numpy_inplace(colors_test, out_test, **params)
+        times_test.append((time.perf_counter() - start) * 1000)
 
-    def test_apply():
-        return lut.apply(
-            colors,
-            temperature=0.7,
-            brightness=1.2,
-            contrast=1.1,
-            gamma=0.9,
-            saturation=1.3,
-            shadows=1.1,
-            highlights=0.9,
-        )
+    test_time = np.mean(times_test)
+    throughput = N_test / test_time * 1000 / 1e6
 
-    mean_time, std_time = benchmark_function(test_apply)
-    throughput = (batch_size / mean_time) * 1000
-
-    print(f"  Time:       {mean_time:8.3f} +/- {std_time:6.3f} ms")
-    print(f"  Throughput: {throughput:12,.0f} points/sec")
-
-# Individual operations
-print("\n" + "=" * 80)
-print("INDIVIDUAL OPERATIONS (100K points)")
-print("=" * 80)
-
-batch_size = 100_000
-colors = torch.rand(batch_size, 3, device="cpu")
-lut = ColorLUT(device="cpu")
-
-operations = {
-    "Temperature only": {"temperature": 0.7},
-    "Brightness only": {"brightness": 1.5},
-    "Contrast only": {"contrast": 1.5},
-    "Gamma only": {"gamma": 0.8},
-    "Saturation only": {"saturation": 1.5},
-    "Shadows only": {"shadows": 1.3},
-    "Highlights only": {"highlights": 0.7},
-    "All operations": {
-        "temperature": 0.7,
-        "brightness": 1.2,
-        "contrast": 1.1,
-        "gamma": 0.9,
-        "saturation": 1.3,
-        "shadows": 1.1,
-        "highlights": 0.9,
-    },
-}
-
-for op_name, params in operations.items():
-
-    def test_op():
-        return lut.apply(colors, **params)
-
-    mean_time, std_time = benchmark_function(test_op)
-    throughput = (batch_size / mean_time) * 1000
-
-    print(f"\n{op_name}:")
-    print(f"  Time:       {mean_time:8.3f} +/- {std_time:6.3f} ms")
-    print(f"  Throughput: {throughput:12,.0f} points/sec")
-
-# LUT resolution
-print("\n" + "=" * 80)
-print("LUT RESOLUTION (100K points)")
-print("=" * 80)
-
-lut_sizes = [256, 512, 1024, 2048, 4096]
-colors = torch.rand(100_000, 3, device="cpu")
-
-for lut_size in lut_sizes:
-    lut = ColorLUT(device="cpu", lut_size=lut_size)
-
-    def test_lut():
-        return lut.apply(colors, brightness=1.2, contrast=1.1)
-
-    mean_time, std_time = benchmark_function(test_lut)
-    throughput = (100_000 / mean_time) * 1000
-    memory_kb = (lut_size * 3 * 4) / 1024
-
-    print(f"\nLUT {lut_size}:")
-    print(f"  Time:       {mean_time:8.3f} +/- {std_time:6.3f} ms")
-    print(f"  Throughput: {throughput:12,.0f} points/sec")
-    print(f"  Memory:     {memory_kb:.1f} KB")
+    print(f"N={N_test:>9,}: {test_time:>7.3f} ms ({throughput:>5.0f}M colors/s)")
 
 print("\n" + "=" * 80)

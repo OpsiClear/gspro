@@ -8,7 +8,10 @@
       "Bash(uv pip install:*)",
       "Bash(uv run:*)",
       "Bash(uv sync:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
