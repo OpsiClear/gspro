@@ -1,8 +1,8 @@
 """
 Utility functions for LUT operations
 
-Provides helper functions for linear interpolation, clustering, and other
-operations used by LUT classes.
+Provides helper functions for linear interpolation and nearest neighbor lookup
+used by LUT classes.
 """
 
 import torch
@@ -71,42 +71,3 @@ def nearest_neighbor_1d(
     distances = torch.cdist(x_expanded, centers.unsqueeze(1))
     nearest_idx = torch.argmin(distances, dim=1)
     return values[nearest_idx]
-
-
-def build_kmeans_clusters(
-    samples: torch.Tensor, num_clusters: int, random_state: int = 42
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Build k-means clusters from samples.
-
-    Args:
-        samples: Input samples [N, D] or [N] (will be reshaped to [N, 1])
-        num_clusters: Number of clusters to create
-        random_state: Random seed for reproducibility
-
-    Returns:
-        Tuple of (cluster_centers, cluster_labels)
-        - cluster_centers: [K, D] tensor of cluster centroids
-        - cluster_labels: [N] tensor of cluster assignments
-
-    Example:
-        >>> samples = torch.randn(1000, 1)
-        >>> centers, labels = build_kmeans_clusters(samples, num_clusters=10)
-        >>> print(centers.shape, labels.shape)
-        torch.Size([10, 1]) torch.Size([1000])
-    """
-    from sklearn.cluster import MiniBatchKMeans
-
-    # Ensure samples are 2D
-    if samples.dim() == 1:
-        samples = samples.unsqueeze(1)
-
-    samples_np = samples.cpu().numpy()
-
-    kmeans = MiniBatchKMeans(n_clusters=num_clusters, random_state=random_state, batch_size=10000)
-    kmeans.fit(samples_np)
-
-    centers = torch.from_numpy(kmeans.cluster_centers_).float()
-    labels = torch.from_numpy(kmeans.labels_)
-
-    return centers, labels
