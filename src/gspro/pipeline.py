@@ -1,484 +1,362 @@
 """
-High-level pipeline API for composing gslut operations.
+Unified Pipeline for composing Color, Transform, and Filter operations.
 
-Provides an elegant, chainable interface for common workflows:
-- Color adjustments with presets
-- Geometric transformations
-- Operation composition
+This module provides a single composable pipeline that can chain all gspro
+operations together for clean, fluent code.
+
+Example:
+    >>> import gsply
+    >>> from gspro import Pipeline
+    >>>
+    >>> data = gsply.plyread("scene.ply")
+    >>>
+    >>> # Compose all operations in one pipeline
+    >>> pipeline = (
+    ...     Pipeline()
+    ...     .within_sphere(radius=0.8)
+    ...     .min_opacity(0.1)
+    ...     .rotate_quat(quaternion)
+    ...     .translate([1, 0, 0])
+    ...     .brightness(1.2)
+    ...     .saturation(1.3)
+    ... )
+    >>>
+    >>> # Execute pipeline
+    >>> result = pipeline(data, inplace=True)
+    >>> gsply.plywrite("output.ply", result)
 """
 
-from collections.abc import Callable
-from typing import Any
+from __future__ import annotations
 
-import numpy as np
+import logging
+from copy import deepcopy
+from typing import Any, Self
 
-from gspro.color import ColorLUT
-from gspro.transform import transform
+from gsply import GSData
+
+from gspro.color.pipeline import Color
+from gspro.filter.pipeline import Filter
+from gspro.transform.pipeline import Transform
+
+logger = logging.getLogger(__name__)
 
 
 class Pipeline:
     """
-    Composable pipeline for chaining gslut operations.
+    Unified pipeline for composing Color, Transform, and Filter operations.
 
-    Provides optimized pipeline for common workflows:
-        pipeline = (
-            Pipeline()
-            .adjust_colors(brightness=1.2, contrast=1.1)
-            .transform(scale_factor=2.0, rotation=quat, translation=[1, 0, 0])
-        )
-        result = pipeline(data)
+    This class provides a fluent API for chaining multiple operations together
+    and applying them to GSData in a single pass.
 
-    All operations use lazy execution - they only run when you call the pipeline.
-    Transform operations use fused 4x4 matrix composition for optimal performance.
-    """
-
-    def __init__(self, device: str = "cpu"):
-        """
-        Initialize pipeline.
-
-        Args:
-            device: Device for color LUT operations ("cpu" or "cuda")
-        """
-        self.device = device
-        self._operations: list[tuple[str, Callable, dict]] = []
-        self._color_lut: ColorLUT | None = None
-
-    def adjust_colors(
-        self,
-        temperature: float = 0.5,
-        brightness: float = 1.0,
-        contrast: float = 1.0,
-        gamma: float = 1.0,
-        saturation: float = 1.0,
-        shadows: float = 1.0,
-        highlights: float = 1.0,
-    ) -> "Pipeline":
-        """
-        Add color adjustment step.
-
-        Args:
-            temperature: Color temperature (0=cool, 0.5=neutral, 1=warm)
-            brightness: Brightness multiplier
-            contrast: Contrast multiplier
-            gamma: Gamma correction
-            saturation: Saturation adjustment
-            shadows: Shadow boost/reduce
-            highlights: Highlight boost/reduce
-
-        Returns:
-            Self for chaining
-        """
-
-        def apply_color_lut(data):
-            if self._color_lut is None:
-                self._color_lut = ColorLUT(device=self.device)
-            return self._color_lut.apply(
-                data,
-                temperature=temperature,
-                brightness=brightness,
-                contrast=contrast,
-                gamma=gamma,
-                saturation=saturation,
-                shadows=shadows,
-                highlights=highlights,
-            )
-
-        self._operations.append(("adjust_colors", apply_color_lut, {}))
-        return self
-
-    def transform(
-        self,
-        translation: list | tuple | None = None,
-        rotation: Any = None,
-        rotation_format: str = "quaternion",
-        scale_factor: float | list | tuple | None = None,
-        center: list | tuple | None = None,
-    ) -> "Pipeline":
-        """
-        Add optimized transformation step using fused 4x4 matrix composition.
-
-        This method applies scale, rotation, and translation in a single operation
-        using pre-computed 4x4 transformation matrices, providing 2-3x speedup
-        compared to sequential operations for large point clouds (>100K points).
-
-        Args:
-            translation: Translation vector [x, y, z]
-            rotation: Rotation in specified format
-            rotation_format: "quaternion", "matrix", "axis_angle", or "euler"
-            scale_factor: Uniform scale or per-axis [x, y, z]
-            center: Center for rotation and scaling [x, y, z]
-
-        Returns:
-            Self for chaining
-
-        Note:
-            - Requires data to be dict with 'means' key
-            - 'quaternions' required if rotation is specified
-            - 'scales' required if scale_factor is specified
-            - Transform order: scale -> rotate -> translate
-
-        Example:
-            >>> pipeline = Pipeline().transform(
-            ...     scale_factor=2.0,
-            ...     rotation=np.array([0.9239, 0, 0, 0.3827]),
-            ...     translation=[1.0, 0.0, 0.0]
-            ... )
-        """
-        self._operations.append(
-            (
-                "transform",
-                transform,
-                {
-                    "translation": translation,
-                    "rotation": rotation,
-                    "rotation_format": rotation_format,
-                    "scale_factor": scale_factor,
-                    "center": center,
-                },
-            )
-        )
-        return self
-
-    def custom(self, func: Callable, **kwargs) -> "Pipeline":
-        """
-        Add custom operation.
-
-        Args:
-            func: Custom function to apply
-            **kwargs: Keyword arguments for the function
-
-        Returns:
-            Self for chaining
-
-        Example:
-            >>> pipeline.custom(lambda x: x * 2)
-            >>> pipeline.custom(my_function, param1=value1)
-        """
-        self._operations.append(("custom", func, kwargs))
-        return self
-
-    def __call__(self, data: Any) -> Any:
-        """
-        Execute pipeline on data.
-
-        Args:
-            data: Input data (tensor, array, or dict)
-
-        Returns:
-            Transformed data (preserves input type)
-
-        Note: For transform operations, data should be a dict with keys:
-            - 'means': positions [N, 3]
-            - 'quaternions': orientations [N, 4] (optional)
-            - 'scales': sizes [N, 3] (optional)
-        """
-        # Copy dict to avoid modifying input
-        if isinstance(data, dict):
-            result = data.copy()
-        else:
-            result = data
-
-        for name, func, kwargs in self._operations:
-            if name == "transform":
-                # Transform operation (fused matrix-based)
-                if isinstance(result, dict):
-                    means, quats, scales = func(
-                        result["means"],
-                        result.get("quaternions"),
-                        result.get("scales"),
-                        **kwargs,
-                    )
-                    result["means"] = means
-                    if quats is not None:
-                        result["quaternions"] = quats
-                    if scales is not None:
-                        result["scales"] = scales
-                else:
-                    raise ValueError(
-                        "transform requires dict input with means, quaternions, scales"
-                    )
-            else:
-                # Simple functions (color adjustments, custom)
-                result = func(result, **kwargs) if kwargs else func(result)
-
-        # ColorLUT always returns NumPy arrays
-        return result
-
-    def reset(self) -> "Pipeline":
-        """
-        Clear all operations from pipeline.
-
-        Returns:
-            Self for chaining
-        """
-        self._operations.clear()
-        self._color_lut = None
-        return self
-
-
-# ============================================================================
-# Preset System
-# ============================================================================
-
-
-class ColorPreset:
-    """
-    Pre-configured color adjustment presets.
-
-    Provides commonly used color grading looks:
-        preset = ColorPreset.cinematic()
-        colors = preset.apply(colors)
-    """
-
-    def __init__(
-        self,
-        temperature: float = 0.5,
-        brightness: float = 1.0,
-        contrast: float = 1.0,
-        gamma: float = 1.0,
-        saturation: float = 1.0,
-        shadows: float = 1.0,
-        highlights: float = 1.0,
-        device: str = "cpu",
-    ):
-        """
-        Create custom preset.
-
-        Args:
-            temperature: Color temperature (0=cool, 0.5=neutral, 1=warm)
-            brightness: Brightness multiplier
-            contrast: Contrast multiplier
-            gamma: Gamma correction
-            saturation: Saturation adjustment
-            shadows: Shadow boost/reduce
-            highlights: Highlight boost/reduce
-            device: Device for LUT operations
-        """
-        self.params = {
-            "temperature": temperature,
-            "brightness": brightness,
-            "contrast": contrast,
-            "gamma": gamma,
-            "saturation": saturation,
-            "shadows": shadows,
-            "highlights": highlights,
-        }
-        self.device = device
-        self._lut = ColorLUT(device=device)
-
-    def apply(self, colors: np.ndarray) -> np.ndarray:
-        """
-        Apply preset to colors.
-
-        Args:
-            colors: RGB colors [N, 3] in range [0, 1]
-
-        Returns:
-            Adjusted colors [N, 3] (same type as input)
-        """
-        # ColorLUT always returns NumPy arrays
-        return self._lut.apply(colors, **self.params)
-
-    def to_pipeline(self) -> Pipeline:
-        """
-        Convert preset to pipeline for further composition.
-
-        Returns:
-            Pipeline with this preset's color adjustments
-        """
-        return Pipeline(device=self.device).adjust_colors(**self.params)
-
-    @classmethod
-    def neutral(cls, device: str = "cpu") -> "ColorPreset":
-        """Identity transformation (no changes)."""
-        return cls(device=device)
-
-    @classmethod
-    def cinematic(cls, device: str = "cpu") -> "ColorPreset":
-        """
-        Cinematic look: desaturated, high contrast, teal shadows, orange highlights.
-        """
-        return cls(
-            temperature=0.55,  # Slightly warm
-            brightness=1.0,
-            contrast=1.2,  # Increased contrast
-            gamma=0.95,
-            saturation=0.85,  # Desaturated
-            shadows=1.1,  # Lift shadows (teal look)
-            highlights=0.95,  # Compress highlights
-            device=device,
-        )
-
-    @classmethod
-    def warm(cls, device: str = "cpu") -> "ColorPreset":
-        """
-        Warm sunset look: orange tones, boosted brightness.
-        """
-        return cls(
-            temperature=0.75,  # Very warm
-            brightness=1.15,
-            contrast=1.1,
-            gamma=0.9,
-            saturation=1.2,  # Boosted saturation
-            shadows=1.15,
-            highlights=0.9,
-            device=device,
-        )
-
-    @classmethod
-    def cool(cls, device: str = "cpu") -> "ColorPreset":
-        """
-        Cool blue look: blue tones, crisp contrast.
-        """
-        return cls(
-            temperature=0.25,  # Very cool
-            brightness=1.0,
-            contrast=1.15,
-            gamma=1.0,
-            saturation=1.1,
-            shadows=1.0,
-            highlights=0.95,
-            device=device,
-        )
-
-    @classmethod
-    def vibrant(cls, device: str = "cpu") -> "ColorPreset":
-        """
-        Vibrant look: boosted saturation and contrast.
-        """
-        return cls(
-            temperature=0.5,
-            brightness=1.1,
-            contrast=1.2,
-            gamma=0.95,
-            saturation=1.4,  # High saturation
-            shadows=1.1,
-            highlights=0.9,
-            device=device,
-        )
-
-    @classmethod
-    def muted(cls, device: str = "cpu") -> "ColorPreset":
-        """
-        Muted/pastel look: low saturation, lifted shadows.
-        """
-        return cls(
-            temperature=0.5,
-            brightness=1.05,
-            contrast=0.95,  # Reduced contrast
-            gamma=1.0,
-            saturation=0.7,  # Low saturation
-            shadows=1.2,  # Lifted shadows
-            highlights=0.95,
-            device=device,
-        )
-
-    @classmethod
-    def dramatic(cls, device: str = "cpu") -> "ColorPreset":
-        """
-        Dramatic look: high contrast, crushed shadows, blown highlights.
-        """
-        return cls(
-            temperature=0.5,
-            brightness=1.0,
-            contrast=1.4,  # Very high contrast
-            gamma=0.85,
-            saturation=1.1,
-            shadows=0.8,  # Crushed shadows
-            highlights=1.1,  # Blown highlights
-            device=device,
-        )
-
-
-# ============================================================================
-# High-level Functional API
-# ============================================================================
-
-
-def adjust_colors(
-    data: np.ndarray,
-    temperature: float = 0.5,
-    brightness: float = 1.0,
-    contrast: float = 1.0,
-    gamma: float = 1.0,
-    saturation: float = 1.0,
-    shadows: float = 1.0,
-    highlights: float = 1.0,
-    device: str = "cpu",
-) -> np.ndarray:
-    """
-    High-level function for color adjustments.
-
-    Args:
-        data: Input RGB colors [N, 3] in range [0, 1]
-        temperature: Color temperature (0=cool, 0.5=neutral, 1=warm)
-        brightness: Brightness multiplier
-        contrast: Contrast multiplier
-        gamma: Gamma correction
-        saturation: Saturation adjustment
-        shadows: Shadow boost/reduce
-        highlights: Highlight boost/reduce
-        device: Device for LUT operations
-
-    Returns:
-        Adjusted RGB colors [N, 3]
+    All operations work with GSData only - no array-based interface.
 
     Example:
-        >>> # Apply color adjustments
-        >>> adjusted = adjust_colors(rgb_colors, brightness=1.2, contrast=1.1)
+        >>> pipeline = (
+        ...     Pipeline()
+        ...     .within_sphere(radius=0.8)
+        ...     .min_opacity(0.1)
+        ...     .rotate_quat(quat)
+        ...     .translate([1, 0, 0])
+        ...     .scale(2.0)
+        ...     .brightness(1.2)
+        ...     .contrast(1.1)
+        ...     .saturation(1.3)
+        ... )
+        >>> result = pipeline(data, inplace=True)
     """
-    # Apply color adjustments (ColorLUT always returns NumPy arrays)
-    lut = ColorLUT(device=device)
-    return lut.apply(
-        data,
-        temperature=temperature,
-        brightness=brightness,
-        contrast=contrast,
-        gamma=gamma,
-        saturation=saturation,
-        shadows=shadows,
-        highlights=highlights,
+
+    __slots__ = ("_color_pipeline", "_transform_pipeline", "_filter_pipeline", "_execution_order")
+
+    # Method names for each pipeline type (for __getattr__ delegation)
+    _COLOR_METHODS = frozenset(
+        {
+            "temperature",
+            "brightness",
+            "contrast",
+            "gamma",
+            "saturation",
+            "vibrance",
+            "hue_shift",
+            "shadows",
+            "highlights",
+            "compile",  # Color-specific
+        }
     )
 
-
-def apply_preset(
-    data: np.ndarray,
-    preset: str | ColorPreset,
-    device: str = "cpu",
-) -> np.ndarray:
-    """
-    Apply color preset to RGB colors.
-
-    Args:
-        data: Input RGB colors [N, 3] in range [0, 1]
-        preset: Preset name or ColorPreset instance
-            Names: "neutral", "cinematic", "warm", "cool", "vibrant", "muted", "dramatic"
-        device: Device for LUT operations
-
-    Returns:
-        Adjusted RGB colors [N, 3]
-
-    Example:
-        >>> adjusted = apply_preset(colors, "cinematic")
-        >>> custom = ColorPreset(brightness=1.2, contrast=1.1)
-        >>> adjusted = apply_preset(colors, custom)
-    """
-    # Get preset instance
-    if isinstance(preset, str):
-        preset_map = {
-            "neutral": ColorPreset.neutral,
-            "cinematic": ColorPreset.cinematic,
-            "warm": ColorPreset.warm,
-            "cool": ColorPreset.cool,
-            "vibrant": ColorPreset.vibrant,
-            "muted": ColorPreset.muted,
-            "dramatic": ColorPreset.dramatic,
+    _TRANSFORM_METHODS = frozenset(
+        {
+            "translate",
+            "rotate_quat",
+            "rotate_euler",
+            "rotate_axis_angle",
+            "rotate_matrix",
+            "scale",
+            "set_center",
         }
-        if preset not in preset_map:
-            raise ValueError(f"Unknown preset: {preset}. Available: {', '.join(preset_map.keys())}")
-        preset_obj = preset_map[preset](device=device)
-    else:
-        preset_obj = preset
+    )
 
-    # Apply preset
-    return preset_obj.apply(data)
+    _FILTER_METHODS = frozenset(
+        {"within_sphere", "within_box", "min_opacity", "max_scale", "bounds"}
+    )  # Note: "max_scale" is for filtering, "scale" in Transform is for scaling
+
+    # Default execution order (optimized for performance)
+    _DEFAULT_ORDER = ("filter", "transform", "color")
+
+    def __init__(self, execution_order: tuple[str, str, str] | None = None):
+        """
+        Initialize the unified pipeline.
+
+        Args:
+            execution_order: Custom execution order for operations.
+                Default is ("filter", "transform", "color") which is optimized for performance.
+                Can be any permutation of these three strings.
+
+        Raises:
+            ValueError: If execution_order contains invalid operation names or duplicates
+
+        Performance Note:
+            The default order ("filter", "transform", "color") is optimal because:
+            1. Filter first reduces data size early, minimizing work for subsequent operations
+            2. Transform second modifies geometry before color adjustments
+            3. Color last operates on final geometry for accurate appearance
+
+        Example:
+            >>> # Default order (recommended)
+            >>> pipeline = Pipeline()
+            >>>
+            >>> # Custom order (advanced use cases)
+            >>> pipeline = Pipeline(execution_order=("color", "filter", "transform"))
+        """
+        self._color_pipeline = Color()
+        self._transform_pipeline = Transform()
+        self._filter_pipeline = Filter()
+
+        # Validate and set execution order
+        if execution_order is None:
+            self._execution_order = self._DEFAULT_ORDER
+        else:
+            # Validate execution order
+            valid_ops = {"filter", "transform", "color"}
+            if set(execution_order) != valid_ops:
+                missing = valid_ops - set(execution_order)
+                extra = set(execution_order) - valid_ops
+                error_parts = []
+                if missing:
+                    error_parts.append(f"missing: {', '.join(sorted(missing))}")
+                if extra:
+                    error_parts.append(f"invalid: {', '.join(sorted(extra))}")
+
+                raise ValueError(
+                    f"execution_order must contain exactly 'filter', 'transform', and 'color'. "
+                    f"{'; '.join(error_parts)}. "
+                    f"Example: Pipeline(execution_order=('filter', 'transform', 'color'))"
+                )
+            if len(execution_order) != 3:
+                raise ValueError(
+                    f"execution_order must contain exactly 3 operations, got {len(execution_order)}. "
+                    f"Provide a tuple with 'filter', 'transform', and 'color' in your desired order."
+                )
+            self._execution_order = tuple(execution_order)
+
+        logger.info("[Pipeline] Initialized with order: %s", self._execution_order)
+
+    # ========================================================================
+    # Properties (Computed from Sub-Pipelines)
+    # ========================================================================
+
+    @property
+    def has_color(self) -> bool:
+        """Check if color pipeline has operations."""
+        return len(self._color_pipeline) > 0
+
+    @property
+    def has_transform(self) -> bool:
+        """Check if transform pipeline has operations."""
+        return len(self._transform_pipeline) > 0
+
+    @property
+    def has_filter(self) -> bool:
+        """Check if filter pipeline has operations."""
+        return len(self._filter_pipeline) > 0
+
+    # ========================================================================
+    # Dynamic Method Delegation via __getattr__
+    # ========================================================================
+
+    def __getattr__(self, name: str) -> Any:
+        """
+        Dynamically delegate method calls to appropriate sub-pipeline.
+
+        This eliminates the need for explicit wrapper methods for each operation.
+        Methods are delegated based on method name registration.
+
+        Args:
+            name: Method name being accessed
+
+        Returns:
+            Wrapper function that delegates to sub-pipeline
+
+        Raises:
+            AttributeError: If method name is not registered
+        """
+        # Color methods
+        if name in self._COLOR_METHODS:
+
+            def wrapper(*args, **kwargs):
+                getattr(self._color_pipeline, name)(*args, **kwargs)
+                return self
+
+            return wrapper
+
+        # Transform methods
+        if name in self._TRANSFORM_METHODS:
+
+            def wrapper(*args, **kwargs):
+                getattr(self._transform_pipeline, name)(*args, **kwargs)
+                return self
+
+            return wrapper
+
+        # Filter methods
+        if name in self._FILTER_METHODS:
+
+            def wrapper(*args, **kwargs):
+                getattr(self._filter_pipeline, name)(*args, **kwargs)
+                return self
+
+            return wrapper
+
+        # Not found - raise AttributeError
+        raise AttributeError(
+            f"'{type(self).__name__}' has no attribute '{name}'. "
+            f"Available methods: {sorted(self._COLOR_METHODS | self._TRANSFORM_METHODS | self._FILTER_METHODS)}"
+        )
+
+    # ========================================================================
+    # Execution
+    # ========================================================================
+
+    def apply(self, data: GSData, inplace: bool = True) -> GSData:
+        """
+        Apply the full pipeline to GSData.
+
+        Operations are applied in the order specified during initialization.
+        Default order: Filter -> Transform -> Color (optimized for performance).
+
+        Why the default order is optimal:
+        1. Filter first: Reduces Gaussian count early, minimizing work for subsequent operations
+           (e.g., filtering 1M -> 100K before transform/color saves 90% of computation)
+        2. Transform second: Modifies geometry before appearance adjustments
+        3. Color last: Operates on final geometry for accurate visual results
+
+        Args:
+            data: GSData object containing Gaussian data
+            inplace: If True, modifies input GSData directly
+
+        Returns:
+            Processed GSData object
+
+        Example:
+            >>> pipeline = Pipeline().brightness(1.2).rotate_quat(quat).within_sphere(radius=0.8)
+            >>> result = pipeline.apply(data, inplace=True)
+        """
+        result = data
+
+        # Track whether we've created a copy yet
+        first_operation_inplace = inplace
+
+        # Map operation names to pipeline objects and has_* flags
+        pipeline_map = {
+            "filter": (self._filter_pipeline, self.has_filter),
+            "transform": (self._transform_pipeline, self.has_transform),
+            "color": (self._color_pipeline, self.has_color),
+        }
+
+        # Apply operations in configured order
+        # OPTIMIZATION #4: Removed has_operations check (1-2% speedup)
+        # Sub-pipelines have identity fast-paths (<0.001ms), so always calling apply() is faster
+        for op_name in self._execution_order:
+            pipeline_obj, _ = pipeline_map[op_name]  # Ignore has_operations flag
+            logger.debug("[Pipeline] Applying %s operations", op_name)
+            result = pipeline_obj.apply(result, inplace=first_operation_inplace)
+            first_operation_inplace = True  # Subsequent operations can be inplace
+
+        logger.info("[Pipeline] Completed processing of %d Gaussians", len(result))
+        return result
+
+    def __call__(self, data: GSData, inplace: bool = True) -> GSData:
+        """
+        Apply the pipeline when called as a function.
+
+        This is the primary way to use the pipeline - clean and Pythonic.
+
+        Args:
+            data: GSData object containing Gaussian data
+            inplace: If True, modifies input GSData directly
+
+        Returns:
+            Processed GSData object
+
+        Example:
+            >>> pipeline = Pipeline().brightness(1.2).within_sphere(radius=0.8)
+            >>> result = pipeline(data, inplace=True)
+        """
+        return self.apply(data, inplace=inplace)
+
+    def reset(self) -> Self:
+        """
+        Reset all operations in the pipeline.
+
+        Returns:
+            Self for chaining
+        """
+        self._color_pipeline.reset()
+        self._transform_pipeline.reset()
+        self._filter_pipeline.reset()
+
+        logger.debug("[Pipeline] Reset")
+        return self
+
+    def copy(self) -> Self:
+        """
+        Create a deep copy of this pipeline.
+
+        Returns:
+            New Pipeline instance with same configuration
+
+        Example:
+            >>> pipeline = Pipeline().brightness(1.2).translate([1, 0, 0])
+            >>> pipeline2 = pipeline.copy().saturation(1.5)  # Independent copy
+        """
+        return deepcopy(self)
+
+    def __repr__(self) -> str:
+        """String representation of the pipeline."""
+        ops = []
+        if self.has_filter:
+            ops.append(f"filter({len(self._filter_pipeline)} ops)")
+        if self.has_transform:
+            ops.append(f"transform({len(self._transform_pipeline)} ops)")
+        if self.has_color:
+            ops.append("color")
+
+        op_str = ", ".join(ops) if ops else "empty"
+        return f"Pipeline({op_str})"
+
+    def __len__(self) -> int:
+        """Total number of operations in the pipeline."""
+        return (
+            len(self._filter_pipeline) + len(self._transform_pipeline) + len(self._color_pipeline)
+        )
+
+    def __copy__(self) -> Self:
+        """Shallow copy delegates to deep copy."""
+        return self.copy()
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Create a deep copy of this pipeline."""
+        new = Pipeline(execution_order=self._execution_order)
+        new._color_pipeline = deepcopy(self._color_pipeline, memo)
+        new._transform_pipeline = deepcopy(self._transform_pipeline, memo)
+        new._filter_pipeline = deepcopy(self._filter_pipeline, memo)
+        return new

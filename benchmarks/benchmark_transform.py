@@ -4,7 +4,7 @@ Benchmark 3D Gaussian transform performance (CPU with fused Numba kernel).
 
 import time
 import numpy as np
-from gspro import transform
+from gspro import Transform
 
 N = 1_000_000
 NUM_ITERATIONS = 100
@@ -24,25 +24,31 @@ translation_np = np.array([1.0, 2.0, 3.0], dtype=np.float32)
 rotation_np = np.array([0.9239, 0.0, 0.0, 0.3827], dtype=np.float32)
 scale_factor = 2.0
 
-out_means_np = np.empty_like(means_np)
-out_quats_np = np.empty_like(quats_np)
-out_scales_np = np.empty_like(scales_np)
+# Create Transform pipeline with all transformations
+pipeline = (Transform()
+    .scale(scale_factor)
+    .rotate_quat(rotation_np)
+    .translate(translation_np)
+    .compile())  # Pre-compile for maximum performance
 
 # Warmup
 print("\nWarming up...")
 for _ in range(20):
-    transform(means_np, quats_np, scales_np,
-              translation=translation_np, rotation=rotation_np, scale_factor=scale_factor,
-              out_means=out_means_np, out_quaternions=out_quats_np, out_scales=out_scales_np)
+    means_test = means_np.copy()
+    quats_test = quats_np.copy()
+    scales_test = scales_np.copy()
+    pipeline.apply(means_test, quats_test, scales_test, inplace=True)
 
 # Benchmark
 print(f"Benchmarking {NUM_ITERATIONS} iterations...")
 times = []
 for _ in range(NUM_ITERATIONS):
+    means_test = means_np.copy()
+    quats_test = quats_np.copy()
+    scales_test = scales_np.copy()
+
     start = time.perf_counter()
-    transform(means_np, quats_np, scales_np,
-              translation=translation_np, rotation=rotation_np, scale_factor=scale_factor,
-              out_means=out_means_np, out_quaternions=out_quats_np, out_scales=out_scales_np)
+    pipeline.apply(means_test, quats_test, scales_test, inplace=True)
     times.append((time.perf_counter() - start) * 1000)
 
 mean_time = np.mean(times)
@@ -65,28 +71,51 @@ for N_test in batch_sizes:
     quats_test = quats_test / np.linalg.norm(quats_test, axis=1, keepdims=True)
     scales_test = np.random.rand(N_test, 3).astype(np.float32)
 
-    out_means_test = np.empty_like(means_test)
-    out_quats_test = np.empty_like(quats_test)
-    out_scales_test = np.empty_like(scales_test)
-
     # Warmup
     for _ in range(5):
-        transform(means_test, quats_test, scales_test,
-                  translation=translation_np, rotation=rotation_np, scale_factor=scale_factor,
-                  out_means=out_means_test, out_quaternions=out_quats_test, out_scales=out_scales_test)
+        means_warmup = means_test.copy()
+        quats_warmup = quats_test.copy()
+        scales_warmup = scales_test.copy()
+        pipeline.apply(means_warmup, quats_warmup, scales_warmup, inplace=True)
 
     times_test = []
     for _ in range(20):
+        means_iter = means_test.copy()
+        quats_iter = quats_test.copy()
+        scales_iter = scales_test.copy()
+
         start = time.perf_counter()
-        transform(means_test, quats_test, scales_test,
-                  translation=translation_np, rotation=rotation_np, scale_factor=scale_factor,
-                  out_means=out_means_test, out_quaternions=out_quats_test, out_scales=out_scales_test)
+        pipeline.apply(means_iter, quats_iter, scales_iter, inplace=True)
         times_test.append((time.perf_counter() - start) * 1000)
 
     test_time = np.mean(times_test)
     throughput = N_test / test_time * 1000 / 1e6
 
     print(f"N={N_test:>9,}: {test_time:>6.2f} ms ({throughput:>6.1f}M G/s)")
+
+# Test matrix compilation overhead
+print("\n" + "=" * 80)
+print("MATRIX COMPILATION OVERHEAD")
+print("=" * 80)
+
+# Test compilation time
+start = time.perf_counter()
+test_pipeline = (Transform()
+    .scale(2.0)
+    .rotate_quat(rotation_np)
+    .translate(translation_np)
+    .compile())
+compile_time = (time.perf_counter() - start) * 1000
+
+print(f"Matrix compilation time: {compile_time:.3f} ms")
+
+# Test recompilation detection
+test_pipeline.scale(3.0)  # Change parameter
+start = time.perf_counter()
+test_pipeline.compile()
+recompile_time = (time.perf_counter() - start) * 1000
+
+print(f"Matrix recompilation time: {recompile_time:.3f} ms")
 
 # Real-world use case
 print("\n" + "=" * 80)
@@ -103,3 +132,8 @@ print(f"  Max FPS:    {1000 / mean_time:.0f} FPS")
 print(f"  Frame time: {mean_time:.2f} ms (target: 16.67ms for 60 FPS)")
 
 print("\n" + "=" * 80)
+print("SUMMARY")
+print("=" * 80)
+print(f"Best throughput: {N/mean_time*1000/1e6:.1f}M Gaussians/sec")
+print(f"Best latency:    {mean_time:.3f} ms for {N:,} Gaussians")
+print("=" * 80)

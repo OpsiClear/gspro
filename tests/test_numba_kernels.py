@@ -152,43 +152,6 @@ class TestNumbaIntegration:
         norms = np.linalg.norm(result, axis=1)
         np.testing.assert_allclose(norms, 1.0, atol=1e-5)
 
-    def test_transform_with_numba(self):
-        """Test full transform operation with Numba optimization."""
-        from gspro.transform import transform
-
-        N = 10000
-        means = np.random.randn(N, 3).astype(np.float32)
-        quats = np.random.randn(N, 4).astype(np.float32)
-        quats = quats / np.linalg.norm(quats, axis=1, keepdims=True)
-        scales = np.random.rand(N, 3).astype(np.float32) + 0.1
-
-        translation = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        rotation = np.array([0.9239, 0.0, 0.0, 0.3827], dtype=np.float32)
-        scale_factor = 2.0
-
-        # This should use Numba internally
-        result_means, result_quats, result_scales = transform(
-            means,
-            quats,
-            scales,
-            translation=translation,
-            rotation=rotation,
-            scale_factor=scale_factor,
-        )
-
-        # Verify shapes
-        assert result_means.shape == means.shape
-        assert result_quats.shape == quats.shape
-        assert result_scales.shape == scales.shape
-
-        # Verify quaternions are still normalized
-        norms = np.linalg.norm(result_quats, axis=1)
-        np.testing.assert_allclose(norms, 1.0, atol=1e-5)
-
-        # Verify scales are scaled correctly
-        expected_scales = scales * scale_factor
-        np.testing.assert_allclose(result_scales, expected_scales, atol=1e-5)
-
 
 class TestNumbaFallback:
     """Test graceful fallback when Numba is not available."""

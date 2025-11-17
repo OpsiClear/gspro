@@ -5,11 +5,15 @@ Provides utilities for calculating spatial bounds of Gaussian splat scenes.
 Based on Universal 4D Viewer TransformService.calculate_scene_bounds().
 """
 
-from typing import Any
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 
 import numpy as np
+from gsply import GSData
 
 
+@dataclass
 class SceneBounds:
     """
     Container for scene spatial bounds.
@@ -17,37 +21,30 @@ class SceneBounds:
     Attributes:
         min: Minimum point [x, y, z]
         max: Maximum point [x, y, z]
-        sizes: Scene dimensions [width, height, depth]
-        max_size: Largest dimension
-        center: Scene center point [x, y, z]
+        sizes: Scene dimensions [width, height, depth] (computed)
+        max_size: Largest dimension (computed)
+        center: Scene center point [x, y, z] (computed)
     """
 
-    def __init__(
-        self,
-        min_point: np.ndarray,
-        max_point: np.ndarray,
-    ):
-        """
-        Initialize scene bounds.
+    min: np.ndarray
+    max: np.ndarray
+    sizes: np.ndarray = field(init=False, repr=False)
+    max_size: float = field(init=False)
+    center: np.ndarray = field(init=False, repr=False)
 
-        Args:
-            min_point: Minimum corner [x, y, z]
-            max_point: Maximum corner [x, y, z]
-        """
-        self.min = np.asarray(min_point, dtype=np.float32)
-        self.max = np.asarray(max_point, dtype=np.float32)
+    def __post_init__(self) -> None:
+        """Calculate derived attributes from min and max bounds."""
+        # Ensure arrays are float32
+        self.min = np.asarray(self.min, dtype=np.float32)
+        self.max = np.asarray(self.max, dtype=np.float32)
+
+        # Compute derived values
         self.sizes = self.max - self.min
         self.max_size = float(np.max(self.sizes))
         self.center = (self.min + self.max) * 0.5
 
-    def __repr__(self) -> str:
-        return (
-            f"SceneBounds(min={self.min}, max={self.max}, "
-            f"sizes={self.sizes}, max_size={self.max_size:.3f})"
-        )
 
-
-def calculate_scene_bounds(positions: np.ndarray) -> SceneBounds:
+def calculate_scene_bounds(data: GSData | np.ndarray) -> SceneBounds:
     """
     Calculate spatial bounds of a Gaussian splat scene.
 
@@ -55,24 +52,32 @@ def calculate_scene_bounds(positions: np.ndarray) -> SceneBounds:
     Testing showed NumPy is competitive with custom Numba for this operation.
 
     Args:
-        positions: Gaussian positions [N, 3] in format [x, y, z]
+        data: GSData object or positions array [N, 3] in format [x, y, z]
 
     Returns:
         SceneBounds object containing min, max, sizes, max_size, center
 
     Example:
-        >>> positions = np.random.randn(1000, 3)
-        >>> bounds = calculate_scene_bounds(positions)
+        >>> # With GSData
+        >>> from gsply import GSData
+        >>> bounds = calculate_scene_bounds(data)
         >>> print(f"Scene size: {bounds.sizes}")
         >>> print(f"Center: {bounds.center}")
+        >>>
+        >>> # With array (backwards compatible)
+        >>> positions = np.random.randn(1000, 3)
+        >>> bounds = calculate_scene_bounds(positions)
 
     Note:
         - Input should be in world coordinates
         - Performance: ~1.5ms for 1M Gaussians
         - Returns float32 for memory efficiency
     """
-    # Validate input
-    positions = np.asarray(positions, dtype=np.float32)
+    # Extract positions from GSData or use array directly
+    if isinstance(data, GSData):
+        positions = data.means
+    else:
+        positions = np.asarray(data, dtype=np.float32)
 
     if len(positions) == 0:
         raise ValueError("positions cannot be empty")
@@ -87,23 +92,30 @@ def calculate_scene_bounds(positions: np.ndarray) -> SceneBounds:
     return SceneBounds(min_point, max_point)
 
 
-def calculate_recommended_max_scale(scales: np.ndarray, percentile: float = 99.5) -> float:
+def calculate_recommended_max_scale(
+    data: GSData | np.ndarray, percentile: float = 99.5
+) -> float:
     """
     Calculate recommended maximum scale threshold using percentiles.
 
     Uses Numba-optimized max calculation for 2x speedup.
 
     Args:
-        scales: Gaussian scales [N, 3] in format [scale_x, scale_y, scale_z]
+        data: GSData object or scales array [N, 3] in format [scale_x, scale_y, scale_z]
         percentile: Percentile to use (default: 99.5)
 
     Returns:
         Recommended max_scale threshold
 
     Example:
+        >>> # With GSData
+        >>> from gsply import GSData
+        >>> threshold = calculate_recommended_max_scale(data)
+        >>> print(f"Recommended max_scale: {threshold:.4f}")
+        >>>
+        >>> # With array (backwards compatible)
         >>> scales = np.random.rand(1000, 3) * 2.0
         >>> threshold = calculate_recommended_max_scale(scales)
-        >>> print(f"Recommended max_scale: {threshold:.4f}")
 
     Note:
         - Run on first frame for good defaults
@@ -113,8 +125,11 @@ def calculate_recommended_max_scale(scales: np.ndarray, percentile: float = 99.5
     """
     from gspro.filter.kernels import calculate_max_scales_numba
 
-    # Validate input
-    scales = np.asarray(scales, dtype=np.float32)
+    # Extract scales from GSData or use array directly
+    if isinstance(data, GSData):
+        scales = data.scales
+    else:
+        scales = np.asarray(data, dtype=np.float32)
 
     if len(scales) == 0:
         raise ValueError("scales cannot be empty")

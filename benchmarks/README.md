@@ -13,6 +13,7 @@ uv run run_all_benchmarks.py
 uv run benchmark_color.py
 uv run benchmark_transform.py
 uv run benchmark_filter.py
+uv run benchmark_mask_strategies.py
 
 # Run optimization benchmarks (used in CI/CD)
 uv run benchmark_optimizations.py
@@ -140,6 +141,47 @@ N=2,000,000:   3.154 ms (  634 M G/s)
 | **filter_gaussians (mean)** | **18.6 ms** | **54 M/s** |
 | **filter_gaussians (best)** | **13.0 ms** | **77 M/s** |
 
+### 4. Mask Combination (`benchmark_mask_strategies.py`)
+
+Tests multi-layer boolean mask combination strategies for complex filtering scenarios.
+
+**Features:**
+- Numba JIT compilation with parallel execution
+- Adaptive strategy: NumPy for 1 layer, Numba for 2+ layers
+- Short-circuit evaluation for early exit
+- 6 combination strategies compared: numpy.all(), numpy.reduce(), bitwise.reduce(), manual_loop, numba_parallel, numba_serial
+
+**Tests:**
+- Combination method comparison (6 strategies)
+- Layer scaling (1, 2, 5, 10, 20 layers)
+- Data size scaling (10K to 1M Gaussians)
+- Selectivity impact (10% to 90% pass rate)
+- Full pipeline breakdown (combine + filter)
+
+**Expected Results:**
+- Numba parallel: 0.026ms for 100K Gaussians, 5 layers (55x faster than numpy.all())
+- Layer scaling: 75-122x speedup for 2+ layers
+- Data size scaling: 34-74x speedup across all sizes
+- Full pipeline: Mask combination only 3.8% of total time (negligible overhead)
+
+**Benchmark Results (100K Gaussians, 5 layers):**
+```
+numpy.all():       1.447 ms  (72 M/s)
+numba_parallel:    0.026 ms  (3,800 M/s) - 55x faster!
+
+Layer Scaling:
+1 layer:   numpy 0.006ms, numba 0.017ms (numpy better for 1 layer)
+2 layers:  numpy 2.187ms, numba 0.029ms (75x faster)
+5 layers:  numpy 2.317ms, numba 0.028ms (82x faster)
+10 layers: numpy 2.344ms, numba 0.019ms (122x faster)
+
+Full Pipeline (100K Gaussians, 3 layers):
+Total:         0.968 ms
+Combine masks: 0.037 ms (3.8%)
+Apply filter:  0.799 ms (82.6%)
+Overhead:      0.132 ms (13.6%)
+```
+
 ## Key Optimizations
 
 **Color Processing:**
@@ -161,6 +203,12 @@ N=2,000,000:   3.154 ms (  634 M G/s)
 - Parallel scatter pattern: Lock-free parallel writes via prefix sum
 - Parallel execution: prange for multi-core utilization
 - Optimized bounds calculation: Single-pass min/max
+
+**Mask Combination:**
+- Adaptive strategy: NumPy for 1 layer (lower overhead), Numba for 2+ layers
+- Numba parallel JIT: 55-122x speedup for multi-layer masks
+- Short-circuit evaluation: Early exit when all values false
+- Negligible overhead: Only 3.8% of full filtering pipeline time
 
 ## System Requirements
 

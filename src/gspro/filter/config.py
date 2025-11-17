@@ -55,8 +55,7 @@ class FilterConfig:
         valid_types = {"none", "sphere", "cuboid"}
         if self.filter_type not in valid_types:
             raise ValueError(
-                f"Invalid filter_type: {self.filter_type}. "
-                f"Must be one of {valid_types}"
+                f"Invalid filter_type: {self.filter_type}. Must be one of {valid_types}"
             )
 
         # Validate ranges

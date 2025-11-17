@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gspro"
-version = "0.1.0"
-description = "Ultra-fast CPU color processing for 3D Gaussian Splatting"
+version = "0.2.0"
+description = "Ultra-fast CPU processing for 3D Gaussian Splatting (color, transform, filter)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -36,6 +36,7 @@ classifiers = [
 dependencies = [
     "numpy>=1.24.0",
     "numba>=0.59.0",
+    "gsply",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +56,9 @@ packages = ["src/gspro"]
 
 [tool.hatch.build.targets.wheel]
 # Include all subpackages (filter, color, etc.)
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -132,10 +132,25 @@ wheels = [
 ]
 
 [[package]]
+name = "gsply"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numba" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/58/264f236df12dd4fa21e378fd0f817dc0a7f6e89d2b4ccfa58da27eb4d5cd/gsply-0.2.0.tar.gz", hash = "sha256:c57c0e59061235b8ffecde4b4c44672b924e5e12b7414ad43a30c7dd5e4fa00b", size = 93291 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ac/dd/d22cc8b97e2143fef31d021574bbaf362a3bc90485a55baa46fd9fd52782/gsply-0.2.0-py3-none-any.whl", hash = "sha256:222c29a7b85c0c5cfbb10d1d0cc32461277522552abfa098d5b56680a486dead", size = 49387 },
+]
+
+[[package]]
 name = "gspro"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
+    { name = "gsply" },
     { name = "numba" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -150,6 +165,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "gsply" },
     { name = "numba", specifier = ">=0.59.0" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },

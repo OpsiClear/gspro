@@ -8,16 +8,13 @@ offering 4-200x speedup over pure NumPy.
 import numpy as np
 from numba import guvectorize, njit, prange
 
-
 # ============================================================================
 # Quaternion Operations (Major Bottleneck - 37ms -> 0.2ms)
 # ============================================================================
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def quaternion_multiply_single_numba(
-    q1: np.ndarray, q2: np.ndarray, out: np.ndarray
-) -> None:
+def quaternion_multiply_single_numba(q1: np.ndarray, q2: np.ndarray, out: np.ndarray) -> None:
     """
     Multiply single quaternion q1 with array of quaternions q2.
 
@@ -47,9 +44,7 @@ def quaternion_multiply_single_numba(
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def quaternion_multiply_batched_numba(
-    q1: np.ndarray, q2: np.ndarray, out: np.ndarray
-) -> None:
+def quaternion_multiply_batched_numba(q1: np.ndarray, q2: np.ndarray, out: np.ndarray) -> None:
     """
     Multiply two arrays of quaternions element-wise.
 
@@ -142,9 +137,7 @@ def apply_transform_matrix_numba(
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def elementwise_multiply_scalar_numba(
-    arr: np.ndarray, scalar: float, out: np.ndarray
-) -> None:
+def elementwise_multiply_scalar_numba(arr: np.ndarray, scalar: float, out: np.ndarray) -> None:
     """
     Multiply array by scalar element-wise: arr * scalar
 
@@ -161,9 +154,7 @@ def elementwise_multiply_scalar_numba(
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def elementwise_multiply_vector_numba(
-    arr: np.ndarray, vec: np.ndarray, out: np.ndarray
-) -> None:
+def elementwise_multiply_vector_numba(arr: np.ndarray, vec: np.ndarray, out: np.ndarray) -> None:
     """
     Multiply array by vector (broadcast): arr * vec
 
@@ -238,7 +229,10 @@ def fused_transform_numba(
         #    (Custom matmul is 9x faster than BLAS for small matrices with large N)
         for j in range(3):
             out_means[i, j] = (
-                R[j, 0] * means[i, 0] + R[j, 1] * means[i, 1] + R[j, 2] * means[i, 2] + translation[j]
+                R[j, 0] * means[i, 0]
+                + R[j, 1] * means[i, 1]
+                + R[j, 2] * means[i, 2]
+                + translation[j]
             )
 
         # 2. Quaternion multiply: rot_quat * quaternions[i]

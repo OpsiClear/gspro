@@ -4,10 +4,9 @@
 CPU-optimized using NumPy and Numba for maximum performance.
 
 Functions:
-- translate(): Translate positions
-- scale(): Scale positions and sizes
-- rotate(): Rotate positions and orientations
-- transform(): Combined transformation (with fused kernel optimization)
+- transform(): Unified transformation interface (translation, rotation, scaling)
+              Uses fused Numba kernel for 4-5x speedup
+              All operations are in-place by default
 - Quaternion utilities: multiply, conversions, etc.
 """
 
@@ -22,11 +21,9 @@ ArrayLike = Union[np.ndarray, tuple, list]
 from gspro.transform.kernels import (
     elementwise_multiply_scalar_numba,
     elementwise_multiply_vector_numba,
-    fused_transform_numba,
     quaternion_multiply_batched_numba,
     quaternion_multiply_single_numba,
 )
-
 
 # ============================================================================
 # 4x4 Homogeneous Transformation Matrix Building (NumPy)
@@ -112,9 +109,17 @@ def _compose_transform_matrix_numpy(
     if rotation is not None:
         # Convert rotation to quaternion and 3x3 matrix
         if rotation_format == "quaternion":
-            rotation_quat = np.array(rotation, dtype=dtype) if not isinstance(rotation, np.ndarray) else rotation.astype(dtype)
+            rotation_quat = (
+                np.array(rotation, dtype=dtype)
+                if not isinstance(rotation, np.ndarray)
+                else rotation.astype(dtype)
+            )
         elif rotation_format == "matrix":
-            rotation_matrix_3x3 = np.array(rotation, dtype=dtype) if not isinstance(rotation, np.ndarray) else rotation.astype(dtype)
+            rotation_matrix_3x3 = (
+                np.array(rotation, dtype=dtype)
+                if not isinstance(rotation, np.ndarray)
+                else rotation.astype(dtype)
+            )
             rotation_quat = _rotation_matrix_to_quaternion_numpy(rotation_matrix_3x3)
         elif rotation_format == "axis_angle":
             rotation_quat = _axis_angle_to_quaternion_numpy(np.array(rotation, dtype=dtype))
@@ -164,7 +169,7 @@ def _apply_homogeneous_transform_numpy(
     """
     # Extract 3x3 combined rotation/scale matrix and translation vector
     R = matrix[:3, :3]  # Upper-left 3x3
-    t = matrix[:3, 3]   # Translation column
+    t = matrix[:3, 3]  # Translation column
 
     if out is not None:
         # Use NumPy's BLAS-optimized matmul with output buffer
@@ -184,14 +189,16 @@ def _translate_numpy(
     means: np.ndarray,
     translation: ArrayLike,
 ) -> np.ndarray:
-    """NumPy implementation of translate."""
+    """NumPy implementation of translate (IN-PLACE)."""
     if not isinstance(translation, np.ndarray):
         translation = np.array(translation, dtype=means.dtype)
 
     if translation.ndim == 1:
         translation = translation[np.newaxis, :]
 
-    return means + translation
+    # In-place addition
+    means += translation
+    return means
 
 
 def _scale_numpy(
@@ -200,10 +207,9 @@ def _scale_numpy(
     scale_factor: float | ArrayLike,
     center: ArrayLike | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """NumPy implementation of scale.
+    """NumPy implementation of scale (IN-PLACE).
 
-    Automatically uses Numba-optimized version when available (8x faster).
-    Falls back to pure NumPy if Numba is not installed.
+    Modifies means and scales arrays in-place for maximum performance.
     """
     # Convert scale_factor to array
     if isinstance(scale_factor, (int, float)):
@@ -220,7 +226,6 @@ def _scale_numpy(
     if scale_factor_arr.ndim == 1:
         scale_factor_arr = scale_factor_arr[np.newaxis, :]
 
-    # Use Numba-optimized version (always available)
     # Handle center of scaling
     if center is not None:
         if not isinstance(center, np.ndarray):
@@ -228,32 +233,27 @@ def _scale_numpy(
         if center.ndim == 1:
             center = center[np.newaxis, :]
 
-        # (means - center) * scale_factor + center
-        centered_means = means - center
-        scaled_centered = np.empty_like(means)
-
+        # (means - center) * scale_factor + center (in-place)
+        means -= center
         if is_uniform_scale:
-            elementwise_multiply_scalar_numba(centered_means, uniform_scale_value, scaled_centered)
+            elementwise_multiply_scalar_numba(means, uniform_scale_value, means)
         else:
-            elementwise_multiply_vector_numba(centered_means, scale_factor_arr, scaled_centered)
-
-        scaled_means = scaled_centered + center
+            elementwise_multiply_vector_numba(means, scale_factor_arr, means)
+        means += center
     else:
-        # means * scale_factor
-        scaled_means = np.empty_like(means)
+        # means * scale_factor (in-place)
         if is_uniform_scale:
-            elementwise_multiply_scalar_numba(means, uniform_scale_value, scaled_means)
+            elementwise_multiply_scalar_numba(means, uniform_scale_value, means)
         else:
-            elementwise_multiply_vector_numba(means, scale_factor_arr, scaled_means)
+            elementwise_multiply_vector_numba(means, scale_factor_arr, means)
 
-    # scales * scale_factor
-    scaled_scales = np.empty_like(scales)
+    # scales * scale_factor (in-place)
     if is_uniform_scale:
-        elementwise_multiply_scalar_numba(scales, uniform_scale_value, scaled_scales)
+        elementwise_multiply_scalar_numba(scales, uniform_scale_value, scales)
     else:
-        elementwise_multiply_vector_numba(scales, scale_factor_arr, scaled_scales)
+        elementwise_multiply_vector_numba(scales, scale_factor_arr, scales)
 
-    return scaled_means, scaled_scales
+    return means, scales
 
 
 def _scale_numpy_fallback(
@@ -296,7 +296,10 @@ def _rotate_numpy(
     center: ArrayLike | None = None,
     rotation_format: str = "quaternion",
 ) -> tuple[np.ndarray, np.ndarray]:
-    """NumPy implementation of rotate."""
+    """NumPy implementation of rotate (IN-PLACE).
+
+    Modifies means and quaternions arrays in-place for maximum performance.
+    """
     # Convert rotation to quaternion if needed
     if rotation_format == "quaternion":
         rotation_quat = rotation
@@ -316,21 +319,23 @@ def _rotate_numpy(
     # Convert quaternion to rotation matrix for position rotation
     rot_matrix = _quaternion_to_rotation_matrix_numpy(rotation_quat.squeeze(0))
 
-    # Handle center of rotation
+    # Handle center of rotation (in-place)
     if center is not None:
         if not isinstance(center, np.ndarray):
             center = np.array(center, dtype=means.dtype)
         if center.ndim == 1:
             center = center[np.newaxis, :]
 
-        rotated_means = (means - center) @ rot_matrix.T + center
+        means -= center
+        np.matmul(means, rot_matrix.T, out=means)
+        means += center
     else:
-        rotated_means = means @ rot_matrix.T
+        np.matmul(means, rot_matrix.T, out=means)
 
-    # Rotate quaternions: q_new = q_rotation * q_old
-    rotated_quaternions = _quaternion_multiply_numpy(rotation_quat, quaternions)
+    # Rotate quaternions: q_new = q_rotation * q_old (in-place)
+    _quaternion_multiply_numpy(rotation_quat, quaternions, out=quaternions)
 
-    return rotated_means, rotated_quaternions
+    return means, quaternions
 
 
 def _quaternion_multiply_numpy(
@@ -514,244 +519,19 @@ def _quaternion_to_euler_numpy(q: np.ndarray) -> np.ndarray:
 # ============================================================================
 
 
-
 # ============================================================================
-# Public API - NumPy-only implementations
+# Public API - Quaternion Utilities
 # ============================================================================
-
-def translate(means: np.ndarray, translation: np.ndarray | tuple | list) -> np.ndarray:
-    """
-    Translate (shift) 3D positions.
-    
-    Args:
-        means: Positions [N, 3]
-        translation: Translation vector [3] or list/tuple
-        
-    Returns:
-        Translated positions [N, 3]
-    """
-    translation = np.asarray(translation, dtype=np.float32)
-    return _translate_numpy(means, translation)
-
-
-def scale(
-    means: np.ndarray,
-    scales: np.ndarray,
-    scale_factor: float | np.ndarray | tuple | list,
-    center: np.ndarray | tuple | list | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Scale positions and Gaussian sizes.
-    
-    Args:
-        means: Positions [N, 3]
-        scales: Gaussian scales [N, 3]
-        scale_factor: Uniform (float) or per-axis ([3]) scaling
-        center: Optional center point for scaling
-        
-    Returns:
-        (scaled_means, scaled_scales)
-    """
-    # Convert scale_factor to array
-    if isinstance(scale_factor, (int, float)):
-        scale_factor = np.array([scale_factor] * 3, dtype=np.float32)
-    else:
-        scale_factor = np.asarray(scale_factor, dtype=np.float32)
-    
-    if center is not None:
-        center = np.asarray(center, dtype=np.float32)
-    
-    return _scale_numpy(means, scales, scale_factor, center)
-
-
-def rotate(
-    means: np.ndarray,
-    quaternions: np.ndarray,
-    rotation: np.ndarray,
-    center: np.ndarray | tuple | list | None = None,
-    rotation_format: str = "quaternion",
-) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Rotate positions and orientations.
-    
-    Args:
-        means: Positions [N, 3]
-        quaternions: Orientations [N, 4] (w, x, y, z)
-        rotation: Rotation in specified format
-        center: Optional center point for rotation
-        rotation_format: "quaternion", "matrix", "axis_angle", or "euler"
-        
-    Returns:
-        (rotated_means, rotated_quaternions)
-    """
-    if center is not None:
-        center = np.asarray(center, dtype=np.float32)
-    
-    return _rotate_numpy(means, quaternions, rotation, center, rotation_format)
-
-
-def transform(
-    means: np.ndarray,
-    quaternions: np.ndarray | None = None,
-    scales: np.ndarray | None = None,
-    translation: np.ndarray | tuple | list | None = None,
-    rotation: np.ndarray | None = None,
-    rotation_format: str = "quaternion",
-    scale_factor: float | np.ndarray | tuple | list | None = None,
-    center: np.ndarray | tuple | list | None = None,
-    out_means: np.ndarray | None = None,
-    out_quaternions: np.ndarray | None = None,
-    out_scales: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
-    """
-    Apply combined transformation: scale -> rotate -> translate.
-
-    Uses fused Numba kernel for 4-5x speedup when:
-    - All output buffers are pre-allocated (out_means, out_quaternions, out_scales)
-    - All data is provided (quaternions, scales)
-    - center is None
-    - Numba is available
-
-    Args:
-        means: Positions [N, 3]
-        quaternions: Optional orientations [N, 4]
-        scales: Optional Gaussian scales [N, 3]
-        translation: Optional translation vector
-        rotation: Optional rotation
-        rotation_format: Format of rotation parameter
-        scale_factor: Optional scale factor
-        center: Optional center for rotation/scaling
-        out_means: Optional pre-allocated output for means
-        out_quaternions: Optional pre-allocated output for quaternions
-        out_scales: Optional pre-allocated output for scales
-
-    Returns:
-        (transformed_means, transformed_quaternions, transformed_scales)
-
-    Example:
-        >>> # Fast path with pre-allocated buffers (4-5x faster)
-        >>> out_means = np.empty_like(means)
-        >>> out_quats = np.empty_like(quaternions)
-        >>> out_scales = np.empty_like(scales)
-        >>> transform(means, quaternions, scales,
-        ...           translation=[1, 0, 0], rotation=quat, scale_factor=2.0,
-        ...           out_means=out_means, out_quaternions=out_quats, out_scales=out_scales)
-    """
-    # Validation
-    if scale_factor is not None and scales is None:
-        raise ValueError("scale_factor provided but scales is None")
-    if rotation is not None and quaternions is None:
-        raise ValueError("rotation provided but quaternions is None")
-
-    # Validate output buffer sizes
-    if out_means is not None and out_means.shape != means.shape:
-        raise ValueError(
-            f"out_means shape {out_means.shape} does not match means shape {means.shape}"
-        )
-    if out_quaternions is not None and quaternions is not None:
-        if out_quaternions.shape != quaternions.shape:
-            raise ValueError(
-                f"out_quaternions shape {out_quaternions.shape} does not match quaternions shape {quaternions.shape}"
-            )
-    if out_scales is not None and scales is not None:
-        if out_scales.shape != scales.shape:
-            raise ValueError(
-                f"out_scales shape {out_scales.shape} does not match scales shape {scales.shape}"
-            )
-
-    # Ensure contiguous arrays for optimal performance
-    if not means.flags["C_CONTIGUOUS"]:
-        means = np.ascontiguousarray(means)
-    if quaternions is not None and not quaternions.flags["C_CONTIGUOUS"]:
-        quaternions = np.ascontiguousarray(quaternions)
-    if scales is not None and not scales.flags["C_CONTIGUOUS"]:
-        scales = np.ascontiguousarray(scales)
-
-    # Build transformation matrix
-    transform_matrix, rotation_quat, scale_vec = _compose_transform_matrix_numpy(
-        translation=translation,
-        rotation=rotation,
-        rotation_format=rotation_format,
-        scale_factor=scale_factor,
-        center=center,
-        dtype=means.dtype,
-    )
-
-    # Fast path: Use fused Numba kernel when all conditions are met (4-5x faster)
-    if (
-        out_means is not None
-        and out_quaternions is not None
-        and out_scales is not None
-        and quaternions is not None
-        and scales is not None
-        and rotation_quat is not None
-        and scale_vec is not None
-        and center is None  # Fused kernel doesn't support center yet
-    ):
-        # Extract rotation matrix from transformation matrix
-        R = transform_matrix[:3, :3]
-        t = transform_matrix[:3, 3]
-
-        # Single fused kernel call (much faster than separate operations)
-        fused_transform_numba(
-            means,
-            quaternions,
-            scales,
-            rotation_quat,
-            scale_vec,
-            t,
-            R,
-            out_means,
-            out_quaternions,
-            out_scales,
-        )
-        result_means = out_means
-        result_quats = out_quaternions
-        result_scales = out_scales
-
-    else:
-        # Standard path: Separate operations
-        # Apply transformation to means
-        if out_means is not None:
-            result_means = out_means
-            _apply_homogeneous_transform_numpy(means, transform_matrix, out=result_means)
-        else:
-            result_means = _apply_homogeneous_transform_numpy(means, transform_matrix)
-
-        # Apply quaternion transformation to orientations
-        if rotation_quat is not None and quaternions is not None:
-            if out_quaternions is not None:
-                result_quats = out_quaternions
-                _quaternion_multiply_numpy(rotation_quat, quaternions, out=result_quats)
-            else:
-                result_quats = _quaternion_multiply_numpy(rotation_quat, quaternions)
-        else:
-            result_quats = quaternions
-
-        # Apply scale to Gaussian sizes
-        if scale_vec is not None and scales is not None:
-            # Allocate or use provided buffer
-            if out_scales is not None:
-                result_scales = out_scales
-            else:
-                result_scales = np.empty_like(scales)
-
-            # Use Numba-optimized elementwise multiply
-            elementwise_multiply_vector_numba(scales, scale_vec, result_scales)
-        else:
-            result_scales = scales
-
-    return result_means, result_quats, result_scales
 
 
 def quaternion_multiply(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
     """
     Multiply quaternions.
-    
+
     Args:
         q1: First quaternion(s) [4] or [N, 4]
         q2: Second quaternion(s) [4] or [N, 4]
-        
+
     Returns:
         Product quaternion(s)
     """
@@ -781,4 +561,3 @@ def euler_to_quaternion(euler: np.ndarray) -> np.ndarray:
 def quaternion_to_euler(q: np.ndarray) -> np.ndarray:
     """Convert quaternion to Euler angles."""
     return _quaternion_to_euler_numpy(q)
-

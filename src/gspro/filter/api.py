@@ -4,8 +4,8 @@ Gaussian splat filtering API.
 Provides volume, opacity, and scale filtering for Gaussian splats.
 Based on Universal 4D Viewer filtering system.
 
-Interface follows the transform module pattern: function-based with kwargs.
-CPU-optimized using NumPy and Numba for maximum performance.
+Public API uses Filter pipeline with GSData objects.
+Internal functions work with arrays for performance.
 """
 
 import logging
@@ -17,17 +17,14 @@ from gspro.filter.config import FilterConfig
 
 # Import Numba kernels for optimization
 from gspro.filter.kernels import (
-    combine_masks_numba,
     cuboid_filter_numba,
-    opacity_filter_numba,
-    scale_filter_numba,
     sphere_filter_numba,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def apply_filter(
+def _apply_filter(
     positions: np.ndarray,
     opacities: np.ndarray | None = None,
     scales: np.ndarray | None = None,
@@ -178,8 +175,7 @@ def apply_filter(
             scales = np.asarray(scales, dtype=np.float32)
             if scales.ndim != 2 or scales.shape != (n_gaussians, 3):
                 raise ValueError(
-                    f"scales shape {scales.shape} doesn't match "
-                    f"positions shape {positions.shape}"
+                    f"scales shape {scales.shape} doesn't match positions shape {positions.shape}"
                 )
 
         # Import fused kernel
@@ -294,156 +290,3 @@ def _apply_cuboid_filter(
     )
 
     return mask
-
-
-def filter_gaussians(
-    positions: np.ndarray,
-    quaternions: np.ndarray | None = None,
-    scales: np.ndarray | None = None,
-    opacities: np.ndarray | None = None,
-    colors: np.ndarray | None = None,
-    # Filter parameters (kwargs like transform module)
-    filter_type: str = "none",
-    sphere_center: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    sphere_radius_factor: float = 1.0,
-    cuboid_center: tuple[float, float, float] = (0.0, 0.0, 0.0),
-    cuboid_size_factor_x: float = 1.0,
-    cuboid_size_factor_y: float = 1.0,
-    cuboid_size_factor_z: float = 1.0,
-    opacity_threshold: float = 0.05,
-    max_scale: float = 10.0,
-    scene_bounds: SceneBounds | None = None,
-    config: FilterConfig | None = None,
-) -> tuple[
-    np.ndarray,  # positions
-    np.ndarray | None,  # quaternions
-    np.ndarray | None,  # scales
-    np.ndarray | None,  # opacities
-    np.ndarray | None,  # colors
-]:
-    """
-    Apply filtering and return filtered Gaussian attributes.
-
-    Convenience function that applies filtering mask to all provided attributes.
-    Returns tuple (like transform module) instead of dict.
-
-    Args:
-        positions: Gaussian positions [N, 3]
-        quaternions: Gaussian rotations [N, 4] (optional)
-        scales: Gaussian scales [N, 3] (optional)
-        opacities: Gaussian opacities [N] (optional)
-        colors: Gaussian colors [N, 3] or [N, C] (optional)
-        filter_type: Spatial filter type ("none", "sphere", "cuboid")
-        sphere_center: Center point for sphere filtering
-        sphere_radius_factor: Radius multiplier (0.0 to 1.0)
-        cuboid_center: Center point for cuboid filtering
-        cuboid_size_factor_x: Width multiplier (0.0 to 1.0)
-        cuboid_size_factor_y: Height multiplier (0.0 to 1.0)
-        cuboid_size_factor_z: Depth multiplier (0.0 to 1.0)
-        opacity_threshold: Minimum opacity to keep (0.0 to 1.0)
-        max_scale: Maximum scale threshold
-        scene_bounds: Pre-calculated scene bounds (auto-calculated if None)
-        config: Optional FilterConfig object (overrides kwargs if provided)
-
-    Returns:
-        Tuple of (positions, quaternions, scales, opacities, colors)
-        where each is the filtered array or None if not provided.
-        Like transform module, returns tuple not dict.
-
-    Example:
-        >>> # Filter with kwargs (like transform module)
-        >>> new_pos, new_quats, new_scales, new_opac, new_colors = filter_gaussians(
-        ...     positions, quaternions, scales, opacities, colors,
-        ...     filter_type="sphere",
-        ...     sphere_radius_factor=0.8,
-        ...     opacity_threshold=0.05
-        ... )
-
-        >>> # Or with FilterConfig for convenience
-        >>> config = FilterConfig(filter_type="sphere", sphere_radius_factor=0.8)
-        >>> new_pos, new_quats, new_scales, new_opac, new_colors = filter_gaussians(
-        ...     positions, quaternions, scales, opacities, colors,
-        ...     config=config
-        ... )
-
-        >>> # Unpack only what you need
-        >>> new_pos, new_quats, *_ = filter_gaussians(positions, quaternions, ...)
-    """
-    # Apply filtering to get mask
-    mask = apply_filter(
-        positions=positions,
-        opacities=opacities,
-        scales=scales,
-        filter_type=filter_type,
-        sphere_center=sphere_center,
-        sphere_radius_factor=sphere_radius_factor,
-        cuboid_center=cuboid_center,
-        cuboid_size_factor_x=cuboid_size_factor_x,
-        cuboid_size_factor_y=cuboid_size_factor_y,
-        cuboid_size_factor_z=cuboid_size_factor_z,
-        opacity_threshold=opacity_threshold,
-        max_scale=max_scale,
-        scene_bounds=scene_bounds,
-        config=config,
-    )
-
-    # Optimize masking: parallel fused kernel with prefix sum
-    # Phase 1: Count and compute indices (two simple passes, well-optimized)
-    # Phase 2: Parallel scatter - each thread copies independently
-    # 5-10x faster than NumPy's separate masking operations
-    from gspro.filter.kernels import (
-        compute_output_indices_and_count,
-        filter_gaussians_fused_parallel,
-    )
-
-    # Allocate indices array
-    out_indices = np.empty(len(mask), dtype=np.int32)
-
-    # Compute indices and count in single fused operation
-    n_kept = compute_output_indices_and_count(mask, out_indices)
-
-    # Pre-allocate all output arrays
-    out_positions = np.empty((n_kept, 3), dtype=positions.dtype)
-
-    out_quaternions = None
-    if quaternions is not None:
-        out_quaternions = np.empty((n_kept, 4), dtype=quaternions.dtype)
-
-    out_scales = None
-    if scales is not None:
-        out_scales = np.empty((n_kept, 3), dtype=scales.dtype)
-
-    out_opacities = None
-    if opacities is not None:
-        out_opacities = np.empty(n_kept, dtype=opacities.dtype)
-
-    out_colors = None
-    if colors is not None:
-        if colors.ndim == 2:
-            out_colors = np.empty((n_kept, colors.shape[1]), dtype=colors.dtype)
-        else:
-            out_colors = np.empty(n_kept, dtype=colors.dtype)
-
-    # Parallel fused kernel: scatter with pre-computed indices
-    filter_gaussians_fused_parallel(
-        mask,
-        out_indices,
-        positions,
-        quaternions,
-        scales,
-        opacities,
-        colors,
-        out_positions,
-        out_quaternions,
-        out_scales,
-        out_opacities,
-        out_colors,
-    )
-
-    return (
-        out_positions,
-        out_quaternions,
-        out_scales,
-        out_opacities,
-        out_colors,
-    )

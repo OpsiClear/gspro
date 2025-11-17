@@ -1,10 +1,16 @@
 """
 Utility functions for LUT operations (NumPy/CPU implementation)
 
-Provides helper functions for linear interpolation and nearest neighbor lookup.
+Provides helper functions for linear interpolation, nearest neighbor lookup,
+and opacity adjustments.
 """
 
+import logging
+
 import numpy as np
+from gsply import GSData
+
+logger = logging.getLogger(__name__)
 
 
 def linear_interp_1d(x: np.ndarray, centers: np.ndarray, values: np.ndarray) -> np.ndarray:
@@ -44,9 +50,7 @@ def linear_interp_1d(x: np.ndarray, centers: np.ndarray, values: np.ndarray) -> 
     return result
 
 
-def nearest_neighbor_1d(
-    x: np.ndarray, centers: np.ndarray, values: np.ndarray
-) -> np.ndarray:
+def nearest_neighbor_1d(x: np.ndarray, centers: np.ndarray, values: np.ndarray) -> np.ndarray:
     """
     Perform 1D nearest neighbor lookup.
 
@@ -73,3 +77,44 @@ def nearest_neighbor_1d(
 
     nearest_idx = np.argmin(distances, axis=1)
     return values[nearest_idx]
+
+
+def multiply_opacity(data: GSData, factor: float, inplace: bool = True) -> GSData:
+    """
+    Multiply all Gaussian opacity values by a factor.
+
+    Useful for fading scenes in/out or adjusting overall transparency.
+
+    Args:
+        data: GSData object containing Gaussian data
+        factor: Opacity multiplier (1.0=no change, >1.0=more opaque, <1.0=more transparent)
+        inplace: If True, modifies input GSData directly
+
+    Returns:
+        GSData with adjusted opacity values
+
+    Example:
+        >>> # Fade scene to 50% opacity
+        >>> faded = multiply_opacity(data, 0.5, inplace=True)
+        >>>
+        >>> # Make scene more opaque
+        >>> opaque = multiply_opacity(data, 1.5, inplace=False)
+
+    Note:
+        Opacity values are clamped to [0, 1] after multiplication.
+    """
+    if factor <= 0:
+        raise ValueError(
+            f"factor={factor} must be positive (> 0). "
+            "Use values <1.0 for transparency, >1.0 for opacity."
+        )
+
+    # Make a copy if not inplace
+    if not inplace:
+        data = data.copy()
+
+    # Multiply opacity and clamp to [0, 1]
+    data.opacities[:] = np.clip(data.opacities * factor, 0.0, 1.0)
+
+    logger.info(f"[multiply_opacity] Applied factor={factor:.2f} to {len(data)} Gaussians")
+    return data

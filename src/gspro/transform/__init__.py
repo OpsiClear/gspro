@@ -1,7 +1,8 @@
 """
 3D transform module.
 
-Provides high-performance geometric transformations for 3D Gaussian Splatting.
+Provides high-performance geometric transformations for 3D Gaussian Splatting
+with chainable pipeline interface for composing multiple transforms.
 """
 
 from gspro.transform.api import (
@@ -10,18 +11,12 @@ from gspro.transform.api import (
     quaternion_multiply,
     quaternion_to_euler,
     quaternion_to_rotation_matrix,
-    rotate,
     rotation_matrix_to_quaternion,
-    scale,
-    transform,
-    translate,
 )
+from gspro.transform.pipeline import Transform
 
 __all__ = [
-    "translate",
-    "rotate",
-    "scale",
-    "transform",
+    "Transform",
     "quaternion_multiply",
     "quaternion_to_rotation_matrix",
     "rotation_matrix_to_quaternion",

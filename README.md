@@ -25,6 +25,7 @@
 - **Pure Python**: NumPy + Numba (no C++ compilation needed)
 - **Composable**: Pipeline API for chaining operations, built-in presets
 - **Complete**: Color grading, 3D transforms, spatial filtering all in one library
+- **Integrated with gsply**: Built on gsply v0.3.0+ for advanced data management
 
 ---
 
@@ -48,7 +49,8 @@
   - **Individual operations**: 392-447M Gaussians/sec
   - **Volume filtering**: Sphere and cuboid spatial selection
   - **Property filtering**: Opacity and scale thresholds with AND logic
-  - **Optimizations**: Fused kernels, parallel scatter pattern, nogil=True
+  - **Multi-layer masks**: FilterMasks API with 55x faster Numba-optimized combination (0.026ms vs 1.447ms)
+  - **Optimizations**: Fused kernels, parallel scatter pattern, nogil=True, adaptive mask combination
 
 - **Composable Pipeline**: Chain operations with lazy execution
   - **Built-in presets**: 7 color grading looks (cinematic, warm, cool, vibrant, muted, dramatic)
@@ -83,334 +85,540 @@ pip install -e .
 
 ## Quick Start
 
-### Color Processing
+### Unified Pipeline (Recommended)
 
 ```python
+import gsply
+from gspro import Pipeline
+
+# Load Gaussian splatting data
+data = gsply.plyread("scene.ply")
+
+# Create a processing pipeline
+pipeline = (
+    Pipeline()
+    .within_sphere(radius=0.8)        # Filter: keep 80% of scene
+    .min_opacity(0.1)                 # Filter: remove low-opacity Gaussians
+    .rotate_quat(quaternion)          # Transform: rotate scene
+    .translate([1, 0, 0])             # Transform: move scene
+    .brightness(1.2)                  # Color: adjust brightness
+    .saturation(1.3)                  # Color: boost saturation
+)
+
+# Execute pipeline (inplace modification)
+result = pipeline(data, inplace=True)
+
+# Save result
+gsply.plywrite("output.ply", result)
+```
+
+### Individual Pipelines
+
+```python
+import gsply
+from gspro import Color, Transform, Filter
+
+# Load data
+data = gsply.plyread("scene.ply")
+
+# Apply color adjustments
+data = (
+    Color()
+    .temperature(0.6)
+    .brightness(1.2)
+    .saturation(1.3)
+    (data, inplace=True)  # Callable interface
+)
+
+# Apply geometric transforms
+data = (
+    Transform()
+    .rotate_quat(quaternion)
+    .translate([1, 0, 0])
+    .scale(2.0)
+    (data, inplace=True)
+)
+
+# Apply filtering
+data = (
+    Filter()
+    .within_sphere(radius=0.8)
+    .min_opacity(threshold=0.1)
+    (data, inplace=True)
+)
+
+# Save
+gsply.plywrite("output.ply", data)
+```
+
+### Using Color Presets
+
+```python
+from gspro import ColorPreset
+
+# Apply built-in color grading presets
+data = ColorPreset.cinematic()(data, inplace=True)
+data = ColorPreset.warm()(data, inplace=True)
+data = ColorPreset.vibrant()(data, inplace=True)
+```
+
+### Parameterized Pipeline Templates
+
+For workflows requiring runtime parameter variation (animation, A/B testing, interactive tools), use parameterized templates with automatic caching:
+
+```python
+from gspro import Color, Filter, Param
 import numpy as np
-from gspro import ColorLUT
 
-lut = ColorLUT()
-colors = np.random.rand(100_000, 3).astype(np.float32)
-
-# Standard API
-result = lut.apply(colors, temperature=0.6, brightness=1.2, saturation=1.3)
-
-# Zero-copy API (6.6x faster, recommended for performance)
-out = np.empty_like(colors)
-lut.apply_numpy_inplace(colors, out, temperature=0.6, brightness=1.2, saturation=1.3)
-```
-
-### 3D Transforms
-
-```python
-from gspro import transform
-
-means = np.random.randn(100_000, 3).astype(np.float32)
-quaternions = np.random.randn(100_000, 4).astype(np.float32)
-quaternions = quaternions / np.linalg.norm(quaternions, axis=1, keepdims=True)
-scales = np.random.rand(100_000, 3).astype(np.float32)
-
-# Combined transform (scale -> rotate -> translate)
-new_means, new_quats, new_scales = transform(
-    means, quaternions, scales,
-    scale_factor=2.0,
-    rotation=[0.9239, 0, 0, 0.3827],  # quaternion
-    translation=[1.0, 0.0, 0.0]
-)
-```
-
-### Pipeline & Presets
-
-```python
-from gspro import ColorPreset, apply_preset
-
-# Use built-in preset
-result = ColorPreset.cinematic().apply(colors)
-
-# Or one-line
-result = apply_preset(colors, "warm")
-```
-
-### Filtering
-
-```python
-from gspro.filter import filter_gaussians, calculate_scene_bounds, calculate_recommended_max_scale
-
-# Calculate scene bounds and recommended threshold
-bounds = calculate_scene_bounds(positions)
-threshold = calculate_recommended_max_scale(scales)
-
-# Apply combined filtering (kwargs like transform module, returns tuple)
-new_pos, new_quats, new_scales, new_opac, new_colors = filter_gaussians(
-    positions, quaternions, scales, opacities, colors,
-    filter_type="sphere",              # or "cuboid" or "none"
-    sphere_radius_factor=0.8,          # 80% of scene radius
-    opacity_threshold=0.05,            # Remove < 5% opacity
-    max_scale=threshold,               # Remove outliers
-    scene_bounds=bounds
+# Create parameterized color template
+template = Color.template(
+    brightness=Param("b", default=1.2, range=(0.5, 2.0)),
+    contrast=Param("c", default=1.1, range=(0.5, 2.0)),
+    saturation=Param("s", default=1.2, range=(0.5, 2.0))
 )
 
-# Use filtered data (tuple return like transform module)
-# Unpack only what you need
-new_pos, new_quats, *_ = filter_gaussians(positions, quaternions, ...)
+# Use with different parameter values (automatically cached)
+result1 = template(data, params={"b": 1.5, "c": 1.2, "s": 1.4})
+result2 = template(data, params={"b": 1.3, "c": 1.0, "s": 1.0})
+result3 = template(data, params={"b": 1.5, "c": 1.2, "s": 1.4})  # Cache hit!
+
+# Generate animation frames with parameter variation
+frames = []
+for i in range(100):
+    brightness = 1.0 + 0.2 * np.sin(2 * np.pi * i / 100)
+    saturation = 1.0 + 0.3 * np.cos(2 * np.pi * i / 100)
+
+    frame = template(data, inplace=False, params={"b": brightness, "s": saturation, "c": 1.1})
+    frames.append(frame)
+# Result: 100 frames in ~244ms (2.4ms/frame) with automatic LUT caching
+
+# Filter template for spatial filtering variations
+filter_template = Filter.template(
+    sphere_radius=Param("r", default=0.8, range=(0.1, 1.0)),
+    min_opacity=Param("o", default=0.1, range=(0.0, 1.0))
+)
+
+# Vary filter parameters at runtime
+result_permissive = filter_template(data, params={"r": 0.9, "o": 0.05})
+result_restrictive = filter_template(data, params={"r": 0.5, "o": 0.2})
 ```
+
+**Performance:**
+- Color templates: 2.2ms per call (45M Gaussians/sec)
+- Filter templates: 49x faster on cache hits (2.05ms vs 97ms)
+- Overhead: ~0.4us per call after optimizations
+
+**When to use templates:**
+- Animation with repeated parameter values (>67% cache hit rate)
+- A/B testing with multiple iterations per parameter set
+- Interactive tools with real-time parameter adjustment
+
+**When NOT to use templates:**
+- Single-shot processing with unique parameters
+- Exploratory parameter sweeps (no cache benefit)
+- Simple 1-2 operation pipelines
 
 ---
 
 ## Complete API Guide
 
-### Color Processing API
+### Unified Pipeline API
 
 #### Basic Usage
 
 ```python
-from gspro import ColorLUT
-import numpy as np
+import gsply
+from gspro import Pipeline
 
-# Create LUT instance (reusable)
-lut = ColorLUT(device="cpu", lut_size=1024)
+# Load Gaussian splatting data
+data = gsply.plyread("scene.ply")
 
-# Prepare colors [N, 3] in range [0, 1]
-colors = np.random.rand(100_000, 3).astype(np.float32)
-
-# Method 1: Standard API (returns new array)
-result = lut.apply(
-    colors,
-    temperature=0.6,    # 0=cool, 0.5=neutral, 1=warm
-    brightness=1.2,     # Multiplier (1.0=no change)
-    contrast=1.1,       # Multiplier (1.0=no change)
-    gamma=1.0,          # Gamma correction (1.0=linear)
-    saturation=1.3,     # Multiplier (1.0=no change, 0=grayscale)
-    shadows=0.9,        # Shadow adjustment (1.0=no change)
-    highlights=1.1      # Highlight adjustment (1.0=no change)
+# Create and configure pipeline
+pipeline = (
+    Pipeline()
+    # Filter operations
+    .within_sphere(radius=0.8)
+    .min_opacity(0.1)
+    .max_scale(2.5)
+    # Transform operations
+    .translate([1, 0, 0])
+    .rotate_quat([1, 0, 0, 0])
+    .scale(2.0)
+    # Color operations
+    .temperature(0.6)
+    .brightness(1.2)
+    .contrast(1.1)
+    .gamma(1.05)
+    .saturation(1.3)
+    .shadows(1.1)
+    .highlights(0.9)
 )
+
+# Execute (returns GSData)
+result = pipeline(data, inplace=False)
+
+# Or modify in-place
+pipeline(data, inplace=True)
 ```
 
-#### Zero-Copy API (Recommended for Performance)
+#### Pipeline Operations
 
 ```python
-# Pre-allocate output buffer (reuse for multiple frames)
-out = np.empty_like(colors)
+# Color adjustments
+pipeline.temperature(0.6)      # 0=cool, 0.5=neutral, 1=warm
+pipeline.brightness(1.2)       # Multiplier (1.0=no change)
+pipeline.contrast(1.1)         # Multiplier (1.0=no change)
+pipeline.gamma(1.05)           # Gamma correction (1.0=linear)
+pipeline.saturation(1.3)       # Multiplier (1.0=no change, 0=grayscale)
+pipeline.shadows(1.1)          # Shadow adjustment (1.0=no change)
+pipeline.highlights(0.9)       # Highlight adjustment (1.0=no change)
 
-# Method 2: Zero-copy API (6.6x faster, 1,389 M/s)
-lut.apply_numpy_inplace(
-    colors, out,
-    temperature=0.6,
-    brightness=1.2,
-    saturation=1.3
-)
-# Result is written to 'out' in-place
-```
+# Transform operations
+pipeline.translate([1, 0, 0])  # Translation vector
+pipeline.rotate_quat(quat)     # Rotation with quaternion
+pipeline.rotate_euler(euler)   # Rotation with euler angles
+pipeline.rotate_matrix(matrix) # Rotation with matrix
+pipeline.rotate_axis_angle(axis, angle)  # Rotation with axis-angle
+pipeline.scale(2.0)            # Uniform or per-axis scale
+pipeline.set_center([0, 0, 0]) # Set center for rotation/scaling
 
-#### NumPy-Only Path
+# Filter operations
+pipeline.within_sphere(center=None, radius=0.8)
+pipeline.within_box(center=None, size=[0.8, 0.8, 0.8])
+pipeline.min_opacity(0.1)
+pipeline.max_scale(2.5)
+pipeline.bounds(scene_bounds)  # Pre-computed bounds
 
-```python
-# Method 3: NumPy-only (no device conversion)
-result = lut.apply_numpy(
-    colors,
-    temperature=0.6,
-    brightness=1.2,
-    saturation=1.3
-)
+# Pipeline control
+pipeline.apply(data, inplace=True)  # Explicit application
+pipeline.reset()               # Clear all operations
+len(pipeline)                  # Number of operations
+repr(pipeline)                 # String representation
 ```
 
 ### Transform API
 
-#### Individual Transforms
+#### Basic Transform Operations
 
 ```python
-from gspro import translate, rotate, scale
-import numpy as np
+import gsply
+from gspro import Transform
 
-# Gaussian data
-means = np.random.randn(100_000, 3).astype(np.float32)
-quaternions = np.random.randn(100_000, 4).astype(np.float32)
-quaternions = quaternions / np.linalg.norm(quaternions, axis=1, keepdims=True)
-scales_arr = np.random.rand(100_000, 3).astype(np.float32)
+# Load Gaussian splatting data
+data = gsply.plyread("scene.ply")
 
-# Translate
-new_means = translate(means, translation=[1.0, 0.0, 0.0])
+# Individual operations
+data = Transform().translate([1, 0, 0])(data, inplace=True)
+data = Transform().rotate_quat([0.9239, 0, 0, 0.3827])(data, inplace=True)
+data = Transform().scale(2.0)(data, inplace=True)
 
-# Rotate (supports 4 rotation formats)
-new_means, new_quats = rotate(
-    means, quaternions,
-    rotation=[0.9239, 0, 0, 0.3827],  # Quaternion (w, x, y, z)
-    rotation_format="quaternion"       # or "matrix", "axis_angle", "euler"
-)
+# Non-uniform scaling
+data = Transform().scale([2.0, 1.5, 1.0])(data, inplace=True)
 
-# Scale
-new_means, new_scales = scale(
-    means, scales_arr,
-    scale_factor=2.0  # Uniform scale
-)
-# OR
-new_means, new_scales = scale(
-    means, scales_arr,
-    scale_factor=[2.0, 1.5, 1.0]  # Non-uniform scale
-)
+# Save result
+gsply.plywrite("transformed.ply", data)
 ```
 
-#### Combined Transform (Recommended)
+#### Chained Transforms (Recommended)
 
 ```python
-from gspro import transform
+import gsply
+from gspro import Transform
 
-# All-in-one transform (4-5x faster than separate operations)
-new_means, new_quats, new_scales = transform(
-    means, quaternions, scales_arr,
-    translation=[1.0, 0.0, 0.0],
-    rotation=[0.9239, 0, 0, 0.3827],
-    rotation_format="quaternion",
-    scale_factor=2.0
+data = gsply.plyread("scene.ply")
+
+# Chain multiple operations (single-pass execution)
+data = (
+    Transform()
+    .translate([1.0, 0.0, 0.0])
+    .rotate_quat([0.9239, 0, 0, 0.3827])
+    .scale(2.0)
+    .set_center([0, 0, 0])  # Set rotation/scale center
+    (data, inplace=True)
 )
+
+gsply.plywrite("output.ply", data)
 ```
 
 #### Rotation Format Examples
 
 ```python
+from gspro import Transform
+import numpy as np
+
 # Quaternion (w, x, y, z)
-rotation = [0.9239, 0, 0, 0.3827]
-rotation_format = "quaternion"
+Transform().rotate_quat([0.9239, 0, 0, 0.3827])
 
 # 3x3 Rotation Matrix
-rotation = np.array([[1, 0, 0], [0, 0.866, -0.5], [0, 0.5, 0.866]])
-rotation_format = "matrix"
+rotation_matrix = np.array([[1, 0, 0], [0, 0.866, -0.5], [0, 0.5, 0.866]])
+Transform().rotate_matrix(rotation_matrix)
 
-# Axis-Angle (axis * angle in radians)
-rotation = [0, 0, 1.57]  # 90 degrees around Z
-rotation_format = "axis_angle"
+# Axis-Angle (axis and angle in radians)
+Transform().rotate_axis_angle([0, 0, 1], 1.57)  # 90 degrees around Z
 
 # Euler Angles (roll, pitch, yaw in radians)
-rotation = [0.1, 0.2, 0.3]
-rotation_format = "euler"
+Transform().rotate_euler([0.1, 0.2, 0.3])
 ```
 
 ### Filtering API
 
-#### Complete Example
+#### Basic Filtering
 
 ```python
-from gspro.filter import (
-    filter_gaussians,
-    calculate_scene_bounds,
-    calculate_recommended_max_scale
-)
-import numpy as np
+import gsply
+from gspro import Filter
+from gspro.filter.bounds import calculate_scene_bounds
 
-# Gaussian data
-positions = np.random.randn(1_000_000, 3).astype(np.float32)
-quaternions = np.random.randn(1_000_000, 4).astype(np.float32)
-scales = np.random.rand(1_000_000, 3).astype(np.float32)
-opacities = np.random.rand(1_000_000).astype(np.float32)
-colors = np.random.rand(1_000_000, 3).astype(np.float32)
+# Load data
+data = gsply.plyread("scene.ply")
 
-# Step 1: Calculate scene bounds (run once)
-bounds = calculate_scene_bounds(positions)
-print(f"Scene center: {bounds.center}")
-print(f"Scene size: {bounds.sizes}")
+# Calculate scene bounds (optional, auto-computed if not provided)
+bounds = calculate_scene_bounds(data.means)
 
-# Step 2: Calculate recommended thresholds (run once)
-max_scale_threshold = calculate_recommended_max_scale(scales, percentile=99.5)
-print(f"Recommended max_scale: {max_scale_threshold:.4f}")
-
-# Step 3: Apply filtering
-filtered_data = filter_gaussians(
-    positions,
-    quaternions,
-    scales,
-    opacities,
-    colors,
-    # Volume filtering (choose one)
-    filter_type="sphere",           # or "cuboid" or "none"
-    sphere_radius_factor=0.8,       # 80% of scene radius
-    # Property filtering
-    opacity_threshold=0.05,         # Remove < 5% opacity
-    max_scale=max_scale_threshold,  # Remove scale outliers
-    # Scene info
-    scene_bounds=bounds
+# Apply filters
+data = (
+    Filter()
+    .within_sphere(radius=0.8)      # Keep 80% of scene
+    .min_opacity(threshold=0.1)     # Remove low-opacity Gaussians
+    .max_scale(2.5)                 # Remove large-scale outliers
+    .bounds(bounds)                 # Use pre-computed bounds
+    (data, inplace=True)
 )
 
-# Unpack results (tuple like transform API)
-new_pos, new_quats, new_scales, new_opac, new_colors = filtered_data
-print(f"Filtered: {len(positions)} -> {len(new_pos)} Gaussians")
+gsply.plywrite("filtered.ply", data)
 ```
 
 #### Filtering Options
 
 ```python
+import gsply
+from gspro import Filter
+
+data = gsply.plyread("scene.ply")
+
 # Option 1: Sphere filtering (keep Gaussians within radius)
-filter_type = "sphere"
-sphere_center = (0.0, 0.0, 0.0)          # Default: scene center
-sphere_radius_factor = 0.8                # 80% of max scene dimension
+data = Filter().within_sphere(
+    center=[0, 0, 0],           # Default: scene center
+    radius=0.8                  # 80% of max scene dimension
+)(data, inplace=True)
 
 # Option 2: Cuboid filtering (keep Gaussians within box)
-filter_type = "cuboid"
-cuboid_center = (0.0, 0.0, 0.0)          # Default: scene center
-cuboid_size_factor_x = 0.8                # 80% of X dimension
-cuboid_size_factor_y = 0.8                # 80% of Y dimension
-cuboid_size_factor_z = 0.8                # 80% of Z dimension
+data = Filter().within_box(
+    center=[0, 0, 0],           # Default: scene center
+    size=[0.8, 0.8, 0.8]        # 80% of each dimension
+)(data, inplace=True)
 
-# Option 3: No volume filtering (property filtering only)
-filter_type = "none"
-```
-
-#### Using apply_filter for Mask Only
-
-```python
-from gspro.filter import apply_filter
-
-# Get boolean mask without copying data
-mask = apply_filter(
-    positions,
-    opacities,
-    scales,
-    filter_type="sphere",
-    sphere_radius_factor=0.8,
-    opacity_threshold=0.05,
-    max_scale=2.5,
-    scene_bounds=bounds
+# Option 3: Property filtering only
+data = (
+    Filter()
+    .min_opacity(threshold=0.05)  # Remove < 5% opacity
+    .max_scale(2.5)                # Remove scale outliers
+    (data, inplace=True)
 )
 
-# Manually apply mask
-filtered_positions = positions[mask]
-filtered_colors = colors[mask]
+# Combined filtering
+data = (
+    Filter()
+    .within_sphere(radius=0.8)
+    .min_opacity(threshold=0.1)
+    .max_scale(2.5)
+    (data, inplace=True)
+)
 ```
 
-### Pipeline API
+#### Mask-Based Filtering
 
-#### Basic Pipeline
+The `get_mask()` method allows you to compute boolean masks without copying data, enabling flexible mask composition and inspection:
 
 ```python
+import gsply
+from gspro import Filter
+
+data = gsply.plyread("scene.ply")
+
+# Get mask only (fast - no data copying)
+mask = Filter().min_opacity(0.5).max_scale(2.0).get_mask(data)
+print(f"Keeping {mask.sum()}/{len(mask)} Gaussians ({mask.sum()/len(mask)*100:.1f}%)")
+
+# Apply mask using GSData slicing
+filtered = data[mask]  # or data.copy_slice(mask)
+
+# Combine multiple masks with boolean logic
+mask1 = Filter().within_sphere(radius=0.8).get_mask(data)
+mask2 = Filter().min_opacity(0.1).get_mask(data)
+
+# AND: Keep only Gaussians that pass both filters
+combined_and = mask1 & mask2
+result = data[combined_and]
+
+# OR: Keep Gaussians that pass either filter
+combined_or = mask1 | mask2
+result = data[combined_or]
+
+# NOT: Invert mask to get filtered-out Gaussians
+inverse_mask = ~mask1
+removed = data[inverse_mask]
+
+# Complex combinations
+mask = (
+    Filter().min_opacity(0.3).get_mask(data) &
+    (Filter().within_sphere(radius=0.8).get_mask(data) |
+     Filter().within_box(size=(0.5, 0.5, 0.5)).get_mask(data))
+)
+result = data[mask]
+```
+
+#### Multi-Layer Mask Management (FilterMasks)
+
+For complex filtering scenarios requiring multiple independent mask layers with different combination strategies, use the `FilterMasks` API for managing named mask layers:
+
+```python
+import gsply
+from gspro import Filter, FilterMasks
+
+data = gsply.plyread("scene.ply")
+
+# Create FilterMasks manager
+masks = FilterMasks(data)
+
+# Add multiple named mask layers
+masks.add("opacity", Filter().min_opacity(0.3))
+masks.add("sphere", Filter().within_sphere(radius=0.8))
+masks.add("scale", Filter().max_scale(2.0))
+
+# Inspect mask layers
+masks.summary()
+# Output:
+# Mask Layers (3):
+#   opacity: 45,231/100,000 pass (45.2%)
+#   sphere:  67,890/100,000 pass (67.9%)
+#   scale:   89,123/100,000 pass (89.1%)
+
+# Combine masks with AND logic (all conditions must pass)
+combined_and = masks.combine(mode="and")
+print(f"{combined_and.sum():,} Gaussians pass all filters")
+
+# Combine masks with OR logic (any condition passes)
+combined_or = masks.combine(mode="or")
+print(f"{combined_or.sum():,} Gaussians pass any filter")
+
+# Combine specific layers only
+mask_subset = masks.combine(mode="and", layers=["opacity", "sphere"])
+
+# Apply masks directly to filter data
+filtered = masks.apply(mode="and", inplace=False)
+# Or apply only specific layers
+filtered = masks.apply(mode="and", layers=["opacity", "scale"], inplace=False)
+
+# Access individual mask layers
+opacity_mask = masks["opacity"]  # or masks.get("opacity")
+
+# Remove mask layer
+masks.remove("scale")
+
+# Check layer existence
+if "opacity" in masks:
+    print(f"Opacity layer has {len(masks)} total layers")
+```
+
+**Performance:** FilterMasks uses Numba-optimized mask combination with automatic strategy selection:
+- **1 layer**: NumPy (0.006ms, lower overhead)
+- **2+ layers**: Numba parallel (0.026ms vs 1.447ms numpy, 55x faster)
+- **Large-scale (1M Gaussians, 5 layers)**: 0.425ms vs 14.587ms (34x faster)
+
+The mask combination overhead is negligible (3.8% of total filtering time) thanks to Numba optimization, making multi-layer filtering practical for interactive applications.
+
+#### Using Low-Level Utilities
+
+```python
+from gspro.filter.bounds import (
+    calculate_scene_bounds,
+    calculate_recommended_max_scale
+)
+import gsply
+
+data = gsply.plyread("scene.ply")
+
+# Calculate scene bounds
+bounds = calculate_scene_bounds(data.means)
+print(f"Scene center: {bounds.center}")
+print(f"Scene size: {bounds.sizes}")
+
+# Calculate recommended scale threshold
+max_scale = calculate_recommended_max_scale(data.scales, percentile=99.5)
+print(f"Recommended max_scale: {max_scale:.4f}")
+
+# Use in filtering
+data = (
+    Filter()
+    .bounds(bounds)
+    .max_scale(max_scale)
+    (data, inplace=True)
+)
+```
+
+### Unified Pipeline API (Recommended)
+
+The Pipeline class combines all operations (color, transform, filter) into a single fluent API.
+
+#### Complete Pipeline Example
+
+```python
+import gsply
 from gspro import Pipeline
 
-# Create pipeline
-pipeline = Pipeline(device="cpu")
+# Load data
+data = gsply.plyread("scene.ply")
 
-# Add operations
-pipeline.adjust_colors(
-    temperature=0.6,
-    brightness=1.2,
-    contrast=1.1,
-    saturation=1.3
+# Create unified pipeline
+pipeline = (
+    Pipeline()
+    # Filtering
+    .within_sphere(radius=0.8)
+    .min_opacity(0.1)
+    .max_scale(2.5)
+    # Transforms
+    .translate([1, 0, 0])
+    .rotate_quat([0.9239, 0, 0, 0.3827])
+    .scale(1.5)
+    # Color grading
+    .temperature(0.6)
+    .brightness(1.2)
+    .contrast(1.1)
+    .saturation(1.3)
 )
 
-# Execute
-result = pipeline(colors)
+# Execute pipeline (inplace for zero-copy)
+result = pipeline(data, inplace=True)
+
+# Save
+gsply.plywrite("output.ply", result)
 ```
 
-#### Using Presets
+#### Using Color Presets
 
 ```python
-from gspro import ColorPreset, apply_preset
+import gsply
+from gspro import ColorPreset, Pipeline
+
+data = gsply.plyread("scene.ply")
 
 # Method 1: Direct preset application
-result = ColorPreset.cinematic().apply(colors)
+data = ColorPreset.cinematic()(data, inplace=True)
 
-# Method 2: Functional API (one-liner)
-result = apply_preset(colors, "warm")
+# Method 2: Combine with other operations
+pipeline = (
+    Pipeline()
+    .within_sphere(radius=0.8)
+    .translate([1, 0, 0])
+)
+# Apply preset then other operations
+data = ColorPreset.warm()(data, inplace=True)
+data = pipeline(data, inplace=True)
 
 # Available presets
-presets = ["neutral", "cinematic", "warm", "cool", "vibrant", "muted", "dramatic"]
+# neutral, cinematic, warm, cool, vibrant, muted, dramatic
+data = ColorPreset.vibrant()(data, inplace=True)
 ```
 
 ---
@@ -484,188 +692,144 @@ presets = ["neutral", "cinematic", "warm", "cool", "vibrant", "muted", "dramatic
 
 ## API Reference
 
-### ColorLUT
+### Pipeline (Unified API)
 
 ```python
-ColorLUT(device="cpu", lut_size=1024)
+Pipeline()
 ```
 
-**Methods:**
-- `apply(colors, **params)` - Apply color adjustments (211 M/s)
-- `apply_numpy()` - NumPy-only path (208 M/s)
-- `apply_numpy_inplace(colors, out, **params)` - Zero-copy API (1,389 M/s, 6.6x faster)
-- `reset()` - Clear LUT cache
+**Methods (chainable):**
 
-**Parameters:**
-- `temperature` (float): 0=cool, 0.5=neutral, 1=warm
-- `brightness` (float): Brightness multiplier
-- `contrast` (float): Contrast multiplier
-- `gamma` (float): Gamma correction
-- `saturation` (float): Saturation adjustment
-- `shadows` (float): Shadow adjustment
-- `highlights` (float): Highlight adjustment
+Color operations:
+- `temperature(value)` - 0=cool, 0.5=neutral, 1=warm
+- `brightness(value)` - Brightness multiplier (1.0=no change)
+- `contrast(value)` - Contrast multiplier (1.0=no change)
+- `gamma(value)` - Gamma correction (1.0=linear)
+- `saturation(value)` - Saturation multiplier (0=grayscale, 1.0=no change)
+- `shadows(value)` - Shadow adjustment (1.0=no change)
+- `highlights(value)` - Highlight adjustment (1.0=no change)
 
-### Transform Functions
+Transform operations:
+- `translate(vector)` - Translation [x, y, z]
+- `rotate_quat(quaternion)` - Rotation with quaternion
+- `rotate_euler(euler)` - Rotation with euler angles
+- `rotate_matrix(matrix)` - Rotation with rotation matrix
+- `rotate_axis_angle(axis, angle)` - Rotation with axis-angle
+- `scale(factor)` - Uniform or per-axis scale
+- `set_center(point)` - Set rotation/scale center [x, y, z]
+
+Filter operations:
+- `within_sphere(center=None, radius=0.8)` - Sphere volume filter
+- `within_box(center=None, size=[0.8, 0.8, 0.8])` - Cuboid volume filter
+- `min_opacity(threshold)` - Minimum opacity threshold (0.0-1.0)
+- `max_scale(threshold)` - Maximum scale threshold
+- `bounds(scene_bounds)` - Pre-computed scene bounds
+
+Execution:
+- `__call__(data, inplace=False)` - Execute pipeline on GSData, returns GSData
+- `apply(data, inplace=False)` - Explicit application
+- `reset()` - Clear all operations
+- `__len__()` - Number of operations
+- `__repr__()` - String representation
+
+### Individual Pipeline Classes
 
 ```python
-translate(means, translation)                    # -> means
-rotate(means, quaternions, rotation, ...)        # -> (means, quaternions)
-scale(means, scales, scale_factor, ...)          # -> (means, scales)
-transform(means, quaternions, scales, ...)       # -> (means, quaternions, scales)
+Color()      # Color adjustments only
+Transform()  # Geometric transforms only
+Filter()     # Spatial/property filtering only
 ```
 
-**Rotation formats:** "quaternion", "matrix", "axis_angle", "euler"
-
-### Quaternion Utilities
-
-```python
-quaternion_multiply(q1, q2)
-quaternion_to_rotation_matrix(q)
-rotation_matrix_to_quaternion(R)
-axis_angle_to_quaternion(axis_angle)
-euler_to_quaternion(euler)
-quaternion_to_euler(q)
-```
-
-### Pipeline
-
-```python
-Pipeline(device="cpu")
-```
-
-**Methods:**
-- `adjust_colors(**params)` - Add color step
-- `transform(**params)` - Add transform step
-- `custom(func, **kwargs)` - Add custom operation
-- `__call__(data)` - Execute pipeline
-- `reset()` - Clear operations
+All classes share the same chainable interface as Pipeline and accept GSData objects.
 
 ### ColorPreset
 
 **Built-in presets:**
-- `neutral()` - Identity
-- `cinematic()` - Desaturated, high contrast, teal/orange
-- `warm()` - Orange tones, boosted brightness
-- `cool()` - Blue tones, crisp contrast
-- `vibrant()` - Boosted saturation/contrast
-- `muted()` - Low saturation, lifted shadows
-- `dramatic()` - High contrast, crushed shadows
+- `ColorPreset.neutral()` - Identity
+- `ColorPreset.cinematic()` - Desaturated, high contrast, teal/orange
+- `ColorPreset.warm()` - Orange tones, boosted brightness
+- `ColorPreset.cool()` - Blue tones, crisp contrast
+- `ColorPreset.vibrant()` - Boosted saturation/contrast
+- `ColorPreset.muted()` - Low saturation, lifted shadows
+- `ColorPreset.dramatic()` - High contrast, crushed shadows
 
-**Methods:**
-- `apply(colors)` - Apply preset
-- `to_pipeline()` - Convert to pipeline
-
-### Functional API
-
+**Usage:**
 ```python
-adjust_colors(colors, **params)
-apply_preset(colors, preset_name)
+data = ColorPreset.cinematic()(data, inplace=True)
 ```
 
-### Filtering
+### Low-Level Utilities
 
+Quaternion operations:
 ```python
-FilterConfig(
-    filter_type="none",                # "none", "sphere", or "cuboid"
-    sphere_center=(0.0, 0.0, 0.0),
-    sphere_radius_factor=1.0,          # 0.0 to 1.0
-    cuboid_center=(0.0, 0.0, 0.0),
-    cuboid_size_factor_x=1.0,          # 0.0 to 1.0
-    cuboid_size_factor_y=1.0,
-    cuboid_size_factor_z=1.0,
-    opacity_threshold=0.05,            # 0.0 to 1.0
-    max_scale=10.0                     # Large value = disabled
+from gspro.transforms import (
+    quaternion_multiply,
+    quaternion_to_rotation_matrix,
+    rotation_matrix_to_quaternion,
+    axis_angle_to_quaternion,
+    euler_to_quaternion,
+    quaternion_to_euler
 )
 ```
 
-**Functions** (kwargs like transform module):
+Scene bounds:
 ```python
-# Apply filtering to get boolean mask (kwargs like transform)
-mask = apply_filter(
-    positions, opacities, scales,
-    filter_type="sphere",
-    sphere_radius_factor=0.8,
-    opacity_threshold=0.05,
-    max_scale=2.5,
-    scene_bounds=bounds
+from gspro.filter.bounds import (
+    calculate_scene_bounds,        # -> SceneBounds
+    calculate_recommended_max_scale  # -> float
 )
 
-# Filter all attributes at once (returns tuple like transform)
-new_pos, new_quats, new_scales, new_opac, new_colors = filter_gaussians(
-    positions, quaternions, scales, opacities, colors,
-    filter_type="sphere",
-    sphere_radius_factor=0.8,
-    opacity_threshold=0.05,
-    scene_bounds=bounds
-)
-
-# Calculate scene spatial bounds
 bounds = calculate_scene_bounds(positions)
 # Returns: SceneBounds(min, max, sizes, max_size, center)
 
-# Calculate recommended max scale threshold
-threshold = calculate_recommended_max_scale(scales, percentile=99.5)
+max_scale = calculate_recommended_max_scale(scales, percentile=99.5)
 ```
 
-**FilterConfig** (optional, for convenience):
-```python
-# Can also use FilterConfig for organizing many parameters
-config = FilterConfig(filter_type="sphere", sphere_radius_factor=0.8, ...)
-mask = apply_filter(positions, config=config)  # Backward compatible
-```
-
-**Filter Types:**
-- **none**: No spatial filtering (default)
-- **sphere**: Keep Gaussians within radius from center
-- **cuboid**: Keep Gaussians within box bounds
-
-**Filter Logic:**
-- All filters use AND logic (all conditions must be met)
-- Opacity filter: `opacity >= threshold`
-- Scale filter: `max(scale_x, scale_y, scale_z) <= max_scale`
-- Volume filter: Inside sphere or cuboid
+**Rotation methods:** `rotate_quat()`, `rotate_matrix()`, `rotate_axis_angle()`, `rotate_euler()`
 
 ## Example: Full Processing Pipeline
 
 ```python
-import numpy as np
-from gspro import ColorLUT, transform
+import gsply
+from gspro import Pipeline
+from gspro.filter.bounds import calculate_scene_bounds
 
-# Load Gaussian data
-colors = load_gaussian_colors()       # [N, 3]
-means = load_gaussian_positions()     # [N, 3]
-quaternions = load_gaussian_orientations()  # [N, 4]
-scales = load_gaussian_scales()       # [N, 3]
+# Load Gaussian splatting data
+data = gsply.plyread("scene.ply")
 
-# Pre-allocate outputs (zero-copy)
-out_colors = np.empty_like(colors)
-out_means = np.empty_like(means)
-out_quats = np.empty_like(quaternions)
-out_scales = np.empty_like(scales)
+# Optional: Pre-compute scene bounds for filtering
+bounds = calculate_scene_bounds(data.means)
 
-# Transform geometry (1.479ms for 1M)
-transform(
-    means, quaternions, scales,
-    translation=[1.0, 0.0, 0.0],
-    rotation=[0.9239, 0, 0, 0.3827],
-    scale_factor=1.5,
-    out_means=out_means,
-    out_quaternions=out_quats,
-    out_scales=out_scales
+# Create unified pipeline combining all operations
+pipeline = (
+    Pipeline()
+    # Filtering (remove unwanted Gaussians)
+    .within_sphere(radius=0.8)      # Keep 80% of scene
+    .min_opacity(0.1)               # Remove low-opacity
+    .max_scale(2.5)                 # Remove large-scale outliers
+    .bounds(bounds)                 # Use pre-computed bounds
+    # Geometric transforms
+    .translate([1.0, 0.0, 0.0])     # Move scene
+    .rotate_quat([0.9239, 0, 0, 0.3827])  # Rotate
+    .scale(1.5)                     # Scale up 1.5x
+    # Color grading
+    .temperature(0.6)               # Cool tones
+    .brightness(1.2)                # Increase brightness
+    .contrast(1.1)                  # Boost contrast
+    .saturation(1.3)                # Vibrant colors
 )
 
-# Color grading (0.099ms for 100K)
-lut = ColorLUT()
-lut.apply_numpy_inplace(
-    colors, out_colors,
-    temperature=0.6,
-    brightness=1.2,
-    contrast=1.1,
-    saturation=1.3
-)
+# Execute pipeline (inplace for zero-copy performance)
+result = pipeline(data, inplace=True)
 
-# Render
-render_scene(out_means, out_quats, out_scales, out_colors)
+# Save processed scene
+gsply.plywrite("output.ply", result)
+
+# Performance notes:
+# - inplace=True: Zero-copy modification for maximum performance
+# - Filtering: 62M Gaussians/sec full pipeline
+# - Transforms: 698M Gaussians/sec combined operations
+# - Colors: 1,389M colors/sec with LUT-based processing
 ```
 
 ---
@@ -852,7 +1016,11 @@ If you use gspro in your research, please cite:
 
 ## Related Projects
 
-- **gsply**: Ultra-fast Gaussian Splatting PLY I/O library
+- **gsply**: Ultra-fast Gaussian Splatting PLY I/O library (required dependency)
+  - v0.3.0+ adds concatenation optimizations (6.15x faster bulk merging)
+  - `make_contiguous()` for manual optimization of iterative workflows (100+ operations)
+  - Multi-layer mask management (used by FilterMasks in gspro)
+  - See [gsply documentation](https://github.com/OpsiClear/gsply) for details
 - **gsplat**: CUDA-accelerated Gaussian Splatting rasterizer
 - **nerfstudio**: NeRF training framework with Gaussian Splatting support
 - **3D Gaussian Splatting**: Original paper and implementation
