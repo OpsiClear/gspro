@@ -4,16 +4,19 @@ Numba-optimized kernels for filtering operations.
 Provides JIT-compiled kernels for performance-critical filtering operations.
 """
 
+from __future__ import annotations
+
 import numpy as np
 from numba import njit, prange
+from numpy.typing import NDArray
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def sphere_filter_numba(
-    positions: np.ndarray,
-    center: np.ndarray,
+    positions: NDArray[np.float32],
+    center: NDArray[np.float32],
     radius_sq: float,
-    out: np.ndarray,
+    out: NDArray[np.bool_],
 ) -> None:
     """
     Apply sphere filter with Numba optimization.
@@ -38,10 +41,10 @@ def sphere_filter_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def cuboid_filter_numba(
-    positions: np.ndarray,
-    min_bounds: np.ndarray,
-    max_bounds: np.ndarray,
-    out: np.ndarray,
+    positions: NDArray[np.float32],
+    min_bounds: NDArray[np.float32],
+    max_bounds: NDArray[np.float32],
+    out: NDArray[np.bool_],
 ) -> None:
     """
     Apply cuboid filter with Numba optimization.
@@ -70,9 +73,9 @@ def cuboid_filter_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def scale_filter_numba(
-    scales: np.ndarray,
+    scales: NDArray[np.float32],
     max_scale: float,
-    out: np.ndarray,
+    out: NDArray[np.bool_],
 ) -> None:
     """
     Apply scale filter with Numba optimization.
@@ -97,9 +100,9 @@ def scale_filter_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def opacity_filter_numba(
-    opacities: np.ndarray,
+    opacities: NDArray[np.float32],
     threshold: float,
-    out: np.ndarray,
+    out: NDArray[np.bool_],
 ) -> None:
     """
     Apply opacity filter with Numba optimization.
@@ -117,9 +120,9 @@ def opacity_filter_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def combine_masks_numba(
-    mask1: np.ndarray,
-    mask2: np.ndarray,
-    out: np.ndarray,
+    mask1: NDArray[np.bool_],
+    mask2: NDArray[np.bool_],
+    out: NDArray[np.bool_],
 ) -> None:
     """
     Combine two boolean masks with AND operation.
@@ -137,12 +140,12 @@ def combine_masks_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def opacity_scale_filter_fused(
-    mask: np.ndarray,
-    opacities: np.ndarray | None,
-    scales: np.ndarray | None,
+    mask: NDArray[np.bool_],
+    opacities: NDArray[np.float32] | None,
+    scales: NDArray[np.float32] | None,
     opacity_threshold: float,
     max_scale: float,
-    out: np.ndarray,
+    out: NDArray[np.bool_],
 ) -> None:
     """
     Fused opacity and scale filtering in a single pass (20-30% faster).
@@ -189,8 +192,8 @@ def opacity_scale_filter_fused(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def calculate_max_scales_numba(
-    scales: np.ndarray,
-    out: np.ndarray,
+    scales: NDArray[np.float32],
+    out: NDArray[np.float32],
 ) -> None:
     """
     Calculate maximum scale per Gaussian with Numba optimization.
@@ -211,7 +214,9 @@ def calculate_max_scales_numba(
 
 
 @njit(cache=True, nogil=True)
-def compute_output_indices_and_count(mask: np.ndarray, out_indices: np.ndarray) -> int:
+def compute_output_indices_and_count(
+    mask: NDArray[np.bool_], out_indices: NDArray[np.int64]
+) -> int:
     """
     Compute output indices and count in single pass (fused operation).
 
@@ -240,20 +245,20 @@ def compute_output_indices_and_count(mask: np.ndarray, out_indices: np.ndarray) 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def filter_gaussians_fused_parallel(
-    mask: np.ndarray,
-    out_indices: np.ndarray,
-    positions: np.ndarray,
-    quaternions: np.ndarray | None,
-    scales: np.ndarray | None,
-    opacities: np.ndarray | None,
-    colors: np.ndarray | None,
-    shN: np.ndarray | None,
-    out_positions: np.ndarray,
-    out_quaternions: np.ndarray | None,
-    out_scales: np.ndarray | None,
-    out_opacities: np.ndarray | None,
-    out_colors: np.ndarray | None,
-    out_shN: np.ndarray | None,
+    mask: NDArray[np.bool_],
+    out_indices: NDArray[np.int64],
+    positions: NDArray[np.float32],
+    quaternions: NDArray[np.float32] | None,
+    scales: NDArray[np.float32] | None,
+    opacities: NDArray[np.float32] | None,
+    colors: NDArray[np.float32] | None,
+    shN: NDArray[np.float32] | None,
+    out_positions: NDArray[np.float32],
+    out_quaternions: NDArray[np.float32] | None,
+    out_scales: NDArray[np.float32] | None,
+    out_opacities: NDArray[np.float32] | None,
+    out_colors: NDArray[np.float32] | None,
+    out_shN: NDArray[np.float32] | None,
 ) -> None:
     """
     Parallel fused masking kernel for all Gaussian attributes.

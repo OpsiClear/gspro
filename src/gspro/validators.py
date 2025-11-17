@@ -40,7 +40,7 @@ def validate_range(
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Get value from args or kwargs
             if len(args) > param_index:
                 value = args[param_index]
@@ -100,7 +100,7 @@ def validate_positive(param_name: str = "value", param_index: int = 1) -> Callab
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Get value from args or kwargs
             if len(args) > param_index:
                 value = args[param_index]
@@ -159,7 +159,7 @@ def validate_type(
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Get value from args or kwargs
             if len(args) > param_index:
                 value = args[param_index]
@@ -211,7 +211,7 @@ def validate_choices(
 
     def decorator(func: F) -> F:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Get value from args or kwargs
             if len(args) > param_index:
                 value = args[param_index]

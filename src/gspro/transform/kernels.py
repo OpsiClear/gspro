@@ -5,8 +5,13 @@ Provides JIT-compiled kernels for quaternion operations and Gaussian transforms,
 offering 4-200x speedup over pure NumPy.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 import numpy as np
 from numba import guvectorize, njit, prange
+from numpy.typing import NDArray
 
 # ============================================================================
 # Quaternion Operations (Major Bottleneck - 37ms -> 0.2ms)
@@ -14,7 +19,9 @@ from numba import guvectorize, njit, prange
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def quaternion_multiply_single_numba(q1: np.ndarray, q2: np.ndarray, out: np.ndarray) -> None:
+def quaternion_multiply_single_numba(
+    q1: NDArray[np.float32], q2: NDArray[np.float32], out: NDArray[np.float32]
+) -> None:
     """
     Multiply single quaternion q1 with array of quaternions q2.
 
@@ -44,7 +51,9 @@ def quaternion_multiply_single_numba(q1: np.ndarray, q2: np.ndarray, out: np.nda
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def quaternion_multiply_batched_numba(q1: np.ndarray, q2: np.ndarray, out: np.ndarray) -> None:
+def quaternion_multiply_batched_numba(
+    q1: NDArray[np.float32], q2: NDArray[np.float32], out: NDArray[np.float32]
+) -> None:
     """
     Multiply two arrays of quaternions element-wise.
 
@@ -105,7 +114,10 @@ def quaternion_multiply_single_guvec(q1, q2, out):
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def apply_transform_matrix_numba(
-    points: np.ndarray, R: np.ndarray, t: np.ndarray, out: np.ndarray
+    points: NDArray[np.float32],
+    R: NDArray[np.float32],
+    t: NDArray[np.float32],
+    out: NDArray[np.float32],
 ) -> None:
     """
     Apply 3x3 rotation/scale matrix and translation to points.
@@ -137,7 +149,9 @@ def apply_transform_matrix_numba(
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def elementwise_multiply_scalar_numba(arr: np.ndarray, scalar: float, out: np.ndarray) -> None:
+def elementwise_multiply_scalar_numba(
+    arr: NDArray[np.float32], scalar: float, out: NDArray[np.float32]
+) -> None:
     """
     Multiply array by scalar element-wise: arr * scalar
 
@@ -154,7 +168,9 @@ def elementwise_multiply_scalar_numba(arr: np.ndarray, scalar: float, out: np.nd
 
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
-def elementwise_multiply_vector_numba(arr: np.ndarray, vec: np.ndarray, out: np.ndarray) -> None:
+def elementwise_multiply_vector_numba(
+    arr: NDArray[np.float32], vec: NDArray[np.float32], out: NDArray[np.float32]
+) -> None:
     """
     Multiply array by vector (broadcast): arr * vec
 
@@ -184,16 +200,16 @@ def elementwise_multiply_vector_numba(arr: np.ndarray, vec: np.ndarray, out: np.
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def fused_transform_numba(
-    means: np.ndarray,
-    quaternions: np.ndarray,
-    scales: np.ndarray,
-    rot_quat: np.ndarray,
-    scale_vec: np.ndarray,
-    translation: np.ndarray,
-    R: np.ndarray,
-    out_means: np.ndarray,
-    out_quats: np.ndarray,
-    out_scales: np.ndarray,
+    means: NDArray[np.float32],
+    quaternions: NDArray[np.float32],
+    scales: NDArray[np.float32],
+    rot_quat: NDArray[np.float32],
+    scale_vec: NDArray[np.float32],
+    translation: NDArray[np.float32],
+    R: NDArray[np.float32],
+    out_means: NDArray[np.float32],
+    out_quats: NDArray[np.float32],
+    out_scales: NDArray[np.float32],
 ) -> None:
     """
     Fused kernel that performs all transform operations in a single parallel loop.
@@ -253,7 +269,7 @@ def fused_transform_numba(
 # ============================================================================
 
 
-def get_numba_status() -> dict:
+def get_numba_status() -> dict[str, Any]:
     """
     Get information about Numba availability and configuration.
 

@@ -5,8 +5,11 @@ Provides JIT-compiled kernels for color LUT operations,
 offering 10-30x speedup over pure NumPy.
 """
 
+from __future__ import annotations
+
 import numpy as np
 from numba import njit, prange
+from numpy.typing import NDArray
 
 # ============================================================================
 # Color Processing Kernels
@@ -15,11 +18,11 @@ from numba import njit, prange
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def fused_color_phase2_numba(
-    colors: np.ndarray,
+    colors: NDArray[np.float32],
     saturation: float,
     shadows: float,
     highlights: float,
-    out: np.ndarray,
+    out: NDArray[np.float32],
 ) -> None:
     """
     Fused Phase 2 color operations: saturation + shadows/highlights.
@@ -94,14 +97,14 @@ def fused_color_phase2_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def fused_color_full_pipeline_numba(
-    colors: np.ndarray,
-    r_lut: np.ndarray,
-    g_lut: np.ndarray,
-    b_lut: np.ndarray,
+    colors: NDArray[np.float32],
+    r_lut: NDArray[np.float32],
+    g_lut: NDArray[np.float32],
+    b_lut: NDArray[np.float32],
     saturation: float,
     shadows: float,
     highlights: float,
-    out: np.ndarray,
+    out: NDArray[np.float32],
 ) -> None:
     """
     ULTRA-FUSED kernel: LUT lookup (Phase 1) + Saturation + Shadows/Highlights (Phase 2).
@@ -189,11 +192,11 @@ def fused_color_full_pipeline_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def fused_color_pipeline_skip_lut_numba(
-    colors: np.ndarray,
+    colors: NDArray[np.float32],
     saturation: float,
     shadows: float,
     highlights: float,
-    out: np.ndarray,
+    out: NDArray[np.float32],
 ) -> None:
     """
     Ultra-fast path when Phase 1 params are defaults (skip LUT entirely).
@@ -242,14 +245,14 @@ def fused_color_pipeline_skip_lut_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def fused_color_pipeline_interp_lut_numba(
-    colors: np.ndarray,
-    r_lut: np.ndarray,
-    g_lut: np.ndarray,
-    b_lut: np.ndarray,
+    colors: NDArray[np.float32],
+    r_lut: NDArray[np.float32],
+    g_lut: NDArray[np.float32],
+    b_lut: NDArray[np.float32],
     saturation: float,
     shadows: float,
     highlights: float,
-    out: np.ndarray,
+    out: NDArray[np.float32],
 ) -> None:
     """
     Fused pipeline with LINEAR INTERPOLATION for LUT lookups.
@@ -322,9 +325,9 @@ def fused_color_pipeline_interp_lut_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def apply_lut_only_interleaved_numba(
-    colors: np.ndarray,
-    lut: np.ndarray,
-    out: np.ndarray,
+    colors: NDArray[np.float32],
+    lut: NDArray[np.float32],
+    out: NDArray[np.float32],
 ) -> None:
     """
     Ultra-fast path: Apply ONLY Phase 1 LUT, skip all Phase 2 operations.
@@ -362,14 +365,14 @@ def apply_lut_only_interleaved_numba(
 
 @njit(parallel=True, fastmath=True, cache=True, nogil=True)
 def fused_color_pipeline_interleaved_lut_numba(
-    colors: np.ndarray,
-    lut: np.ndarray,
+    colors: NDArray[np.float32],
+    lut: NDArray[np.float32],
     saturation: float,
     vibrance: float,
     hue_shift_deg: float,
     shadows: float,
     highlights: float,
-    out: np.ndarray,
+    out: NDArray[np.float32],
     # Pre-computed hue rotation matrix (OPTIMIZATION #8: eliminates trig functions)
     m00: float = 1.0, m01: float = 0.0, m02: float = 0.0,
     m10: float = 0.0, m11: float = 1.0, m12: float = 0.0,

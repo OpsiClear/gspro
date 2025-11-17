@@ -202,7 +202,7 @@ class Pipeline:
         # Color methods
         if name in self._COLOR_METHODS:
 
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Self:
                 getattr(self._color_pipeline, name)(*args, **kwargs)
                 return self
 
@@ -211,7 +211,7 @@ class Pipeline:
         # Transform methods
         if name in self._TRANSFORM_METHODS:
 
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Self:
                 getattr(self._transform_pipeline, name)(*args, **kwargs)
                 return self
 
@@ -220,7 +220,7 @@ class Pipeline:
         # Filter methods
         if name in self._FILTER_METHODS:
 
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Self:
                 getattr(self._filter_pipeline, name)(*args, **kwargs)
                 return self
 
