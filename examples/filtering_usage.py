@@ -13,7 +13,6 @@ import logging
 import numpy as np
 
 from gspro.filter import (
-    FilterConfig,
     apply_filter,
     calculate_recommended_max_scale,
     calculate_scene_bounds,
@@ -65,7 +64,7 @@ def example_1_opacity_filtering():
     mask = apply_filter(positions, opacities=opacities, opacity_threshold=0.1)
 
     filtered_positions = positions[mask]
-    filtered_opacities = opacities[mask]
+    opacities[mask]
 
     print(f"After opacity filter: {len(filtered_positions)} Gaussians")
     print(f"Removed: {len(positions) - len(filtered_positions)} Gaussians")
@@ -198,7 +197,7 @@ def example_5_combined_filtering():
     print(f"Kept: {len(new_pos) / len(data['positions']) * 100:.1f}%")
 
     # All attributes are filtered consistently (tuple return like transform)
-    print(f"\nFiltered attributes shapes:")
+    print("\nFiltered attributes shapes:")
     print(f"  positions: {new_pos.shape}")
     print(f"  quaternions: {new_quats.shape}")
     print(f"  scales: {new_scales.shape}")
@@ -219,7 +218,7 @@ def example_6_reuse_bounds():
     first_frame = generate_sample_data()
     bounds = calculate_scene_bounds(first_frame["positions"])
 
-    print(f"Calculated scene bounds from frame 0")
+    print("Calculated scene bounds from frame 0")
     print(f"Processing {n_frames} frames...")
 
     # Reuse bounds for all frames (kwargs like transform)
@@ -235,10 +234,7 @@ def example_6_reuse_bounds():
             scene_bounds=bounds,  # Reuse!
         )
 
-        print(
-            f"  Frame {frame_idx}: "
-            f"{len(frame_data['positions'])} -> {mask.sum()} Gaussians"
-        )
+        print(f"  Frame {frame_idx}: {len(frame_data['positions'])} -> {mask.sum()} Gaussians")
 
 
 def example_7_custom_percentiles():
@@ -263,7 +259,7 @@ def example_7_custom_percentiles():
     aggressive_threshold = calculate_recommended_max_scale(scales, percentile=95.0)
     mask = apply_filter(data["positions"], scales=scales, max_scale=aggressive_threshold)
 
-    print(f"\nWith 95th percentile threshold:")
+    print("\nWith 95th percentile threshold:")
     print(f"  Kept: {mask.sum()} / {len(mask)} Gaussians ({mask.sum() / len(mask) * 100:.1f}%)")
 
 

@@ -2,8 +2,8 @@
 
 import numpy as np
 import pytest
-
 from gsply import GSData
+
 from gspro import Pipeline
 
 
@@ -33,7 +33,7 @@ def sample_gsdata():
 
 
 @pytest.fixture
-def sample_gsdata_with_shN():
+def sample_gsdata_with_shn():
     """Generate sample GSData with higher-order SH coefficients."""
     rng = np.random.default_rng(42)
     n = 1000
@@ -74,11 +74,7 @@ class TestPipeline:
 
         # Test chaining all types of operations
         result = (
-            pipeline
-            .brightness(1.2)
-            .saturation(1.3)
-            .translate([1, 0, 0])
-            .within_sphere(radius=0.8)
+            pipeline.brightness(1.2).saturation(1.3).translate([1, 0, 0]).within_sphere(radius=0.8)
         )
 
         assert result is pipeline
@@ -129,11 +125,7 @@ class TestPipeline:
 
     def test_transform_operations(self, sample_gsdata):
         """Test transform operations through unified pipeline."""
-        pipeline = (
-            Pipeline()
-            .translate([1, 0, 0])
-            .scale(2.0)
-        )
+        pipeline = Pipeline().translate([1, 0, 0]).scale(2.0)
 
         assert pipeline.has_transform is True
         assert len(pipeline) >= 1
@@ -163,11 +155,7 @@ class TestPipeline:
         """Test transform operations with center point."""
         center = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 
-        pipeline = (
-            Pipeline()
-            .set_center(center)
-            .scale(2.0)
-        )
+        pipeline = Pipeline().set_center(center).scale(2.0)
 
         result = pipeline(sample_gsdata, inplace=False)
 
@@ -180,11 +168,7 @@ class TestPipeline:
 
     def test_filter_operations(self, sample_gsdata):
         """Test filter operations through unified pipeline."""
-        pipeline = (
-            Pipeline()
-            .within_sphere(radius=0.5)
-            .min_opacity(0.3)
-        )
+        pipeline = Pipeline().within_sphere(radius=0.5).min_opacity(0.3)
 
         assert pipeline.has_filter is True
         assert len(pipeline) >= 1
@@ -235,11 +219,11 @@ class TestPipeline:
         max_scales = np.max(result.scales, axis=1)
         assert np.all(max_scales <= 0.05)
 
-    def test_filter_preserves_shN(self, sample_gsdata_with_shN):
+    def test_filter_preserves_shn(self, sample_gsdata_with_shn):
         """Test that filtering preserves higher-order SH coefficients."""
         pipeline = Pipeline().within_sphere(radius=0.5)
 
-        result = pipeline(sample_gsdata_with_shN, inplace=False)
+        result = pipeline(sample_gsdata_with_shn, inplace=False)
 
         # shN should be present and filtered
         assert result.shN is not None
@@ -275,16 +259,12 @@ class TestPipeline:
         # Result should be filtered
         assert len(result) < len(sample_gsdata)
         # Positions should be transformed
-        assert not np.allclose(result.means, sample_gsdata.means[:len(result)])
+        assert not np.allclose(result.means, sample_gsdata.means[: len(result)])
         # Colors should be adjusted
-        assert not np.allclose(result.sh0, sample_gsdata.sh0[:len(result)])
+        assert not np.allclose(result.sh0, sample_gsdata.sh0[: len(result)])
 
     def test_operation_order(self, sample_gsdata):
         """Test that operations are applied in correct order: Filter -> Transform -> Color."""
-        # This is implicit in the implementation, but we can verify
-        # that the result is consistent
-        quat = np.array([1, 0, 0, 0], dtype=np.float32)
-
         pipeline = (
             Pipeline()
             .brightness(1.2)  # Color (added first)
@@ -318,11 +298,7 @@ class TestPipeline:
         original_means = sample_gsdata.means.copy()
         original_colors = sample_gsdata.sh0.copy()
 
-        pipeline = (
-            Pipeline()
-            .translate([1, 0, 0])
-            .brightness(1.2)
-        )
+        pipeline = Pipeline().translate([1, 0, 0]).brightness(1.2)
 
         result = pipeline(sample_gsdata, inplace=True)
 
@@ -337,11 +313,7 @@ class TestPipeline:
         original_means = sample_gsdata.means.copy()
         original_colors = sample_gsdata.sh0.copy()
 
-        pipeline = (
-            Pipeline()
-            .translate([1, 0, 0])
-            .brightness(1.2)
-        )
+        pipeline = Pipeline().translate([1, 0, 0]).brightness(1.2)
 
         result = pipeline(sample_gsdata, inplace=False)
 
@@ -376,12 +348,7 @@ class TestPipeline:
 
     def test_reset(self, sample_gsdata):
         """Test reset functionality."""
-        pipeline = (
-            Pipeline()
-            .brightness(1.2)
-            .translate([1, 0, 0])
-            .within_sphere(radius=0.8)
-        )
+        pipeline = Pipeline().brightness(1.2).translate([1, 0, 0]).within_sphere(radius=0.8)
 
         assert pipeline.has_color is True
         assert pipeline.has_transform is True
@@ -454,12 +421,7 @@ class TestPipeline:
 
     def test_multiple_same_operation_type(self, sample_gsdata):
         """Test adding multiple operations of the same type."""
-        pipeline = (
-            Pipeline()
-            .brightness(1.2)
-            .saturation(1.3)
-            .contrast(1.1)
-        )
+        pipeline = Pipeline().brightness(1.2).saturation(1.3).contrast(1.1)
 
         result = pipeline(sample_gsdata, inplace=False)
 
@@ -472,11 +434,7 @@ class TestPipeline:
 
         bounds = calculate_scene_bounds(sample_gsdata.means)
 
-        pipeline = (
-            Pipeline()
-            .bounds(bounds)
-            .within_sphere(radius=0.8)
-        )
+        pipeline = Pipeline().bounds(bounds).within_sphere(radius=0.8)
 
         result = pipeline(sample_gsdata, inplace=False)
 

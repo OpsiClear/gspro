@@ -4,6 +4,7 @@ Debug specific pixels that show large differences.
 
 import numpy as np
 import torch
+
 from gspro import ColorLUT
 
 N = 100_000
@@ -15,6 +16,7 @@ lut = ColorLUT(device="cpu", lut_size=1024)
 
 # Disable Numba temporarily
 import gspro.color as color_module
+
 original_numba_available = color_module.NUMBA_AVAILABLE
 color_module.NUMBA_AVAILABLE = False
 

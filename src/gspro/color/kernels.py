@@ -374,9 +374,15 @@ def fused_color_pipeline_interleaved_lut_numba(
     highlights: float,
     out: NDArray[np.float32],
     # Pre-computed hue rotation matrix (OPTIMIZATION #8: eliminates trig functions)
-    m00: float = 1.0, m01: float = 0.0, m02: float = 0.0,
-    m10: float = 0.0, m11: float = 1.0, m12: float = 0.0,
-    m20: float = 0.0, m21: float = 0.0, m22: float = 1.0,
+    m00: float = 1.0,
+    m01: float = 0.0,
+    m02: float = 0.0,
+    m10: float = 0.0,
+    m11: float = 1.0,
+    m12: float = 0.0,
+    m20: float = 0.0,
+    m21: float = 0.0,
+    m22: float = 1.0,
 ) -> None:
     """
     Fused color pipeline with INTERLEAVED LUT for better cache locality.
@@ -516,7 +522,9 @@ def warmup_color_kernels() -> None:
 
     # Warmup interleaved LUT kernel (with vibrance and hue_shift)
     lut_interleaved = np.stack([r_lut, g_lut, b_lut], axis=1)
-    fused_color_pipeline_interleaved_lut_numba(colors, lut_interleaved, 1.3, 1.1, 15.0, 1.1, 0.9, out_colors)
+    fused_color_pipeline_interleaved_lut_numba(
+        colors, lut_interleaved, 1.3, 1.1, 15.0, 1.1, 0.9, out_colors
+    )
 
     # Warmup LUT-only kernel (fast path for Phase 1 only)
     apply_lut_only_interleaved_numba(colors, lut_interleaved, out_colors)

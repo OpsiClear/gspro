@@ -10,12 +10,7 @@ Functions:
 - Quaternion utilities: multiply, conversions, etc.
 """
 
-from typing import Union
-
 import numpy as np
-
-# Type aliases for better readability
-ArrayLike = Union[np.ndarray, tuple, list]
 
 # Import Numba kernels at module level - Numba is required
 from gspro.transform.kernels import (
@@ -24,6 +19,9 @@ from gspro.transform.kernels import (
     quaternion_multiply_batched_numba,
     quaternion_multiply_single_numba,
 )
+
+# Type aliases for better readability (Python 3.12+ syntax)
+type ArrayLike = np.ndarray | tuple | list
 
 # ============================================================================
 # 4x4 Homogeneous Transformation Matrix Building (NumPy)

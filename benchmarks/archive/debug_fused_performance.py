@@ -7,7 +7,6 @@ Compare different implementations to understand bottlenecks.
 import time
 
 import numpy as np
-
 from gspro.numba_ops import (
     fused_color_full_pipeline_numba,
     fused_color_phase2_numba,
@@ -56,7 +55,7 @@ for _ in range(iterations):
 
 result1 = out.copy()
 time1 = np.mean(times)
-print(f"  Time: {time1:.3f} ms ({N/time1*1000/1e6:.1f} M/s)")
+print(f"  Time: {time1:.3f} ms ({N / time1 * 1000 / 1e6:.1f} M/s)")
 
 # Test 2: Ultra-fused kernel (everything in Numba)
 print("\n[2] Ultra-fused Numba kernel (LUT + Phase 2):")
@@ -72,7 +71,7 @@ for _ in range(iterations):
     times.append((time.perf_counter() - start) * 1000)
 
 time2 = np.mean(times)
-print(f"  Time: {time2:.3f} ms ({N/time2*1000/1e6:.1f} M/s)")
+print(f"  Time: {time2:.3f} ms ({N / time2 * 1000 / 1e6:.1f} M/s)")
 
 # Test 3: Just LUT lookup in NumPy
 print("\n[3] NumPy LUT lookup only (no Phase 2):")
@@ -92,7 +91,7 @@ for _ in range(iterations):
     times.append((time.perf_counter() - start) * 1000)
 
 time3 = np.mean(times)
-print(f"  Time: {time3:.3f} ms ({N/time3*1000/1e6:.1f} M/s)")
+print(f"  Time: {time3:.3f} ms ({N / time3 * 1000 / 1e6:.1f} M/s)")
 
 # Test 4: Just LUT lookup in Numba
 print("\n[4] Numba LUT lookup only (no Phase 2):")
@@ -132,7 +131,7 @@ for _ in range(iterations):
     times.append((time.perf_counter() - start) * 1000)
 
 time4 = np.mean(times)
-print(f"  Time: {time4:.3f} ms ({N/time4*1000/1e6:.1f} M/s)")
+print(f"  Time: {time4:.3f} ms ({N / time4 * 1000 / 1e6:.1f} M/s)")
 
 # Test 5: Just Phase 2 in Numba
 print("\n[5] Numba Phase 2 only (no LUT):")
@@ -146,7 +145,7 @@ for _ in range(iterations):
     times.append((time.perf_counter() - start) * 1000)
 
 time5 = np.mean(times)
-print(f"  Time: {time5:.3f} ms ({N/time5*1000/1e6:.1f} M/s)")
+print(f"  Time: {time5:.3f} ms ({N / time5 * 1000 / 1e6:.1f} M/s)")
 
 # Analysis
 print("\n" + "=" * 80)
@@ -162,18 +161,18 @@ Component breakdown:
 Combined (NumPy LUT + Numba P2): {time1:.3f} ms (measured) vs {time3 + time5:.3f} ms (sum)
 Combined (Numba everything):     {time2:.3f} ms (measured)
 
-Speedup (ultra-fused vs current): {time1/time2:.2f}x
+Speedup (ultra-fused vs current): {time1 / time2:.2f}x
 
 FINDINGS:
 =========
 
 1. NumPy LUT lookup is FASTER than Numba LUT lookup
-   - NumPy: {time3:.3f} ms ({N/time3*1000/1e6:.0f} M/s)
-   - Numba: {time4:.3f} ms ({N/time4*1000/1e6:.0f} M/s)
+   - NumPy: {time3:.3f} ms ({N / time3 * 1000 / 1e6:.0f} M/s)
+   - Numba: {time4:.3f} ms ({N / time4 * 1000 / 1e6:.0f} M/s)
    - Reason: NumPy's vectorized indexing is highly optimized (possibly SIMD)
 
 2. Phase 2 (Numba) is very fast
-   - Only {time5:.3f} ms ({N/time5*1000/1e6:.0f} M/s)
+   - Only {time5:.3f} ms ({N / time5 * 1000 / 1e6:.0f} M/s)
 
 3. Ultra-fused kernel is SLOWER because:
    - Numba LUT lookup ({time4:.3f} ms) > NumPy LUT lookup ({time3:.3f} ms)

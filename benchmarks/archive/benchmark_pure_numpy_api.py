@@ -64,7 +64,7 @@ for N in batch_sizes:
     torch_time = np.mean(times)
     torch_std = np.std(times)
     print(f"  Time:       {torch_time:.3f} ms +/- {torch_std:.3f} ms")
-    print(f"  Throughput: {N/torch_time*1000/1e6:.1f} M colors/sec")
+    print(f"  Throughput: {N / torch_time * 1000 / 1e6:.1f} M colors/sec")
 
     # Test 2: New apply_numpy() with NumPy arrays
     print("\n[2] New apply_numpy() with NumPy arrays:")
@@ -83,7 +83,7 @@ for N in batch_sizes:
     numpy_time = np.mean(times)
     numpy_std = np.std(times)
     print(f"  Time:       {numpy_time:.3f} ms +/- {numpy_std:.3f} ms")
-    print(f"  Throughput: {N/numpy_time*1000/1e6:.1f} M colors/sec")
+    print(f"  Throughput: {N / numpy_time * 1000 / 1e6:.1f} M colors/sec")
 
     # Speedup
     speedup = torch_time / numpy_time

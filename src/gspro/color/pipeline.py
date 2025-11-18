@@ -28,14 +28,10 @@ Example:
 from __future__ import annotations
 
 import logging
-import sys
 from copy import deepcopy
 
 # Python 3.10 compatibility: Self was added in Python 3.11
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from typing import Self
 
 import numpy as np
 from gsply import GSData
@@ -118,9 +114,15 @@ class Color:
         "_cached_highlights",  # Optimized highlights value
         "_cached_phase2_is_identity",  # Pre-computed Phase 2 identity check
         # Pre-computed hue rotation matrix (9 coefficients)
-        "_hue_m00", "_hue_m01", "_hue_m02",
-        "_hue_m10", "_hue_m11", "_hue_m12",
-        "_hue_m20", "_hue_m21", "_hue_m22",
+        "_hue_m00",
+        "_hue_m01",
+        "_hue_m02",
+        "_hue_m10",
+        "_hue_m11",
+        "_hue_m12",
+        "_hue_m20",
+        "_hue_m21",
+        "_hue_m22",
     )
 
     def __init__(self, lut_size: int = DEFAULT_LUT_SIZE, device: str = "cpu"):
@@ -772,6 +774,7 @@ class Color:
         if self._cached_phase2_is_identity:
             # Only apply Phase 1 LUT, skip Phase 2 entirely
             from gspro.color.kernels import apply_lut_only_interleaved_numba
+
             apply_lut_only_interleaved_numba(colors, self._compiled_lut, colors)
         else:
             # Apply full pipeline (Phase 1 LUT + Phase 2 operations)
@@ -787,9 +790,15 @@ class Color:
                 self._cached_highlights,
                 colors,  # Output to same array (in-place)
                 # Pre-computed hue rotation matrix
-                self._hue_m00, self._hue_m01, self._hue_m02,
-                self._hue_m10, self._hue_m11, self._hue_m12,
-                self._hue_m20, self._hue_m21, self._hue_m22,
+                self._hue_m00,
+                self._hue_m01,
+                self._hue_m02,
+                self._hue_m10,
+                self._hue_m11,
+                self._hue_m12,
+                self._hue_m20,
+                self._hue_m21,
+                self._hue_m22,
             )
 
         return colors

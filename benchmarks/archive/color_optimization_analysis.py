@@ -3,8 +3,10 @@ Analyze ColorLUT performance and identify optimization opportunities.
 """
 
 import time
+
 import numpy as np
 import torch
+
 from gspro import ColorLUT
 
 # Test with 100K colors
@@ -23,37 +25,69 @@ print("\n[Phase 1: LUT Operations]")
 times = []
 for _ in range(100):
     start = time.perf_counter()
-    result = lut.apply(colors, temperature=0.7, brightness=1.2, contrast=1.1, gamma=0.9,
-                       saturation=1.0, shadows=1.0, highlights=1.0)  # No Phase 2
+    result = lut.apply(
+        colors,
+        temperature=0.7,
+        brightness=1.2,
+        contrast=1.1,
+        gamma=0.9,
+        saturation=1.0,
+        shadows=1.0,
+        highlights=1.0,
+    )  # No Phase 2
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 # Test Phase 2 only (Sequential operations)
 print("\n[Phase 2: Sequential Operations]")
 times = []
 for _ in range(100):
     # Pre-apply Phase 1 once
-    phase1_result = lut.apply(colors, temperature=0.5, brightness=1.0, contrast=1.0, gamma=1.0,
-                               saturation=1.0, shadows=1.0, highlights=1.0)
+    phase1_result = lut.apply(
+        colors,
+        temperature=0.5,
+        brightness=1.0,
+        contrast=1.0,
+        gamma=1.0,
+        saturation=1.0,
+        shadows=1.0,
+        highlights=1.0,
+    )
 
     start = time.perf_counter()
-    result = lut.apply(phase1_result, temperature=0.5, brightness=1.0, contrast=1.0, gamma=1.0,
-                       saturation=1.3, shadows=1.1, highlights=0.9)  # Only Phase 2 changes
+    result = lut.apply(
+        phase1_result,
+        temperature=0.5,
+        brightness=1.0,
+        contrast=1.0,
+        gamma=1.0,
+        saturation=1.3,
+        shadows=1.1,
+        highlights=0.9,
+    )  # Only Phase 2 changes
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 # Test combined (both phases)
 print("\n[Combined: Phase 1 + Phase 2]")
 times = []
 for _ in range(100):
     start = time.perf_counter()
-    result = lut.apply(colors, temperature=0.7, brightness=1.2, contrast=1.1, gamma=0.9,
-                       saturation=1.3, shadows=1.1, highlights=0.9)
+    result = lut.apply(
+        colors,
+        temperature=0.7,
+        brightness=1.2,
+        contrast=1.1,
+        gamma=0.9,
+        saturation=1.3,
+        shadows=1.1,
+        highlights=0.9,
+    )
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 # Analyze Phase 2 breakdown
 print("\n" + "=" * 80)
@@ -65,47 +99,76 @@ print("\n[Saturation only]")
 times = []
 for _ in range(100):
     start = time.perf_counter()
-    result = lut.apply(colors, saturation=1.3,
-                       temperature=0.5, brightness=1.0, contrast=1.0, gamma=1.0,
-                       shadows=1.0, highlights=1.0)
+    result = lut.apply(
+        colors,
+        saturation=1.3,
+        temperature=0.5,
+        brightness=1.0,
+        contrast=1.0,
+        gamma=1.0,
+        shadows=1.0,
+        highlights=1.0,
+    )
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 # Test shadows only
 print("\n[Shadows only]")
 times = []
 for _ in range(100):
     start = time.perf_counter()
-    result = lut.apply(colors, shadows=1.1,
-                       temperature=0.5, brightness=1.0, contrast=1.0, gamma=1.0,
-                       saturation=1.0, highlights=1.0)
+    result = lut.apply(
+        colors,
+        shadows=1.1,
+        temperature=0.5,
+        brightness=1.0,
+        contrast=1.0,
+        gamma=1.0,
+        saturation=1.0,
+        highlights=1.0,
+    )
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 # Test highlights only
 print("\n[Highlights only]")
 times = []
 for _ in range(100):
     start = time.perf_counter()
-    result = lut.apply(colors, highlights=0.9,
-                       temperature=0.5, brightness=1.0, contrast=1.0, gamma=1.0,
-                       saturation=1.0, shadows=1.0)
+    result = lut.apply(
+        colors,
+        highlights=0.9,
+        temperature=0.5,
+        brightness=1.0,
+        contrast=1.0,
+        gamma=1.0,
+        saturation=1.0,
+        shadows=1.0,
+    )
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 # Test saturation + shadows/highlights
 print("\n[Saturation + Shadows + Highlights]")
 times = []
 for _ in range(100):
     start = time.perf_counter()
-    result = lut.apply(colors, saturation=1.3, shadows=1.1, highlights=0.9,
-                       temperature=0.5, brightness=1.0, contrast=1.0, gamma=1.0)
+    result = lut.apply(
+        colors,
+        saturation=1.3,
+        shadows=1.1,
+        highlights=0.9,
+        temperature=0.5,
+        brightness=1.0,
+        contrast=1.0,
+        gamma=1.0,
+    )
     times.append((time.perf_counter() - start) * 1000)
 
-print(f"Time: {np.mean(times):.3f} ms ({N/np.mean(times)*1000/1e6:.1f}M points/sec)")
+print(f"Time: {np.mean(times):.3f} ms ({N / np.mean(times) * 1000 / 1e6:.1f}M points/sec)")
 
 print("\n" + "=" * 80)
 print("OPTIMIZATION OPPORTUNITIES")

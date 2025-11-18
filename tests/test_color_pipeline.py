@@ -2,9 +2,8 @@
 
 import numpy as np
 import pytest
-import time
-
 from gsply import GSData
+
 from gspro.color.pipeline import Color
 
 
@@ -48,12 +47,7 @@ class TestColor:
         pipeline = Color()
 
         # Test chaining
-        result = (pipeline
-                 .temperature(0.6)
-                 .brightness(1.2)
-                 .contrast(1.1)
-                 .gamma(1.05)
-                 .saturation(1.3))
+        result = pipeline.temperature(0.6).brightness(1.2).contrast(1.1).gamma(1.05).saturation(1.3)
 
         assert result is pipeline
 
@@ -82,7 +76,7 @@ class TestColor:
         assert pipeline._compiled_lut is None
 
         # Apply triggers compilation
-        result = pipeline.apply(sample_gsdata, inplace=False)
+        pipeline.apply(sample_gsdata, inplace=False)
 
         # Now compiled
         assert pipeline._compiled_lut is not None
@@ -101,7 +95,7 @@ class TestColor:
         assert pipeline._is_dirty  # Should be marked dirty
 
         # Apply triggers recompilation
-        result = pipeline.apply(sample_gsdata, inplace=False)
+        pipeline.apply(sample_gsdata, inplace=False)
         lut2 = pipeline._compiled_lut
 
         # LUTs should be different
@@ -113,12 +107,13 @@ class TestColor:
         original_colors = sample_gsdata.sh0.copy()
 
         # Apply Phase 1 operations
-        result = (pipeline
-                 .temperature(0.7)
-                 .brightness(1.2)
-                 .contrast(1.1)
-                 .gamma(0.95)
-                 .apply(sample_gsdata, inplace=False))
+        result = (
+            pipeline.temperature(0.7)
+            .brightness(1.2)
+            .contrast(1.1)
+            .gamma(0.95)
+            .apply(sample_gsdata, inplace=False)
+        )
 
         # Result should be different from input
         assert not np.allclose(result.sh0, original_colors)
@@ -132,11 +127,12 @@ class TestColor:
         original_colors = sample_gsdata.sh0.copy()
 
         # Apply Phase 2 operations
-        result = (pipeline
-                 .saturation(1.3)
-                 .shadows(1.1)
-                 .highlights(0.9)
-                 .apply(sample_gsdata, inplace=False))
+        result = (
+            pipeline.saturation(1.3)
+            .shadows(1.1)
+            .highlights(0.9)
+            .apply(sample_gsdata, inplace=False)
+        )
 
         # Result should be different from input
         assert not np.allclose(result.sh0, original_colors)
@@ -150,13 +146,14 @@ class TestColor:
         original_colors = sample_gsdata.sh0.copy()
 
         # Apply both Phase 1 and Phase 2 operations
-        result = (pipeline
-                 .temperature(0.6)  # Phase 1
-                 .brightness(1.2)   # Phase 1
-                 .contrast(1.1)     # Phase 1
-                 .saturation(1.3)   # Phase 2
-                 .shadows(1.1)      # Phase 2
-                 .apply(sample_gsdata, inplace=False))
+        result = (
+            pipeline.temperature(0.6)  # Phase 1
+            .brightness(1.2)  # Phase 1
+            .contrast(1.1)  # Phase 1
+            .saturation(1.3)  # Phase 2
+            .shadows(1.1)  # Phase 2
+            .apply(sample_gsdata, inplace=False)
+        )
 
         # Result should be valid
         assert result.sh0.shape == original_colors.shape
@@ -214,12 +211,9 @@ class TestColor:
 
     def test_get_params(self):
         """Test getting current parameters."""
-        pipeline = (Color()
-                   .temperature(0.6)
-                   .brightness(1.2)
-                   .contrast(1.1)
-                   .gamma(0.95)
-                   .saturation(1.3))
+        pipeline = (
+            Color().temperature(0.6).brightness(1.2).contrast(1.1).gamma(0.95).saturation(1.3)
+        )
 
         params = pipeline.get_params()
 
@@ -272,13 +266,14 @@ class TestColor:
         pipeline = Color()
 
         # Apply extreme adjustments
-        result = (pipeline
-                 .temperature(1.0)  # Maximum warm
-                 .brightness(3.0)   # Very bright
-                 .contrast(3.0)     # Very high contrast
-                 .gamma(0.2)        # Very low gamma
-                 .saturation(3.0)   # Very saturated
-                 .apply(sample_gsdata, inplace=False))
+        result = (
+            pipeline.temperature(1.0)  # Maximum warm
+            .brightness(3.0)  # Very bright
+            .contrast(3.0)  # Very high contrast
+            .gamma(0.2)  # Very low gamma
+            .saturation(3.0)  # Very saturated
+            .apply(sample_gsdata, inplace=False)
+        )
 
         # Output should still be clamped to [0, 1]
         assert np.all(result.sh0 >= 0.0)

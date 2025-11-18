@@ -3,8 +3,10 @@ Benchmark ColorLUT performance (CPU).
 """
 
 import time
+
 import numpy as np
 import torch
+
 from gspro import ColorLUT
 
 

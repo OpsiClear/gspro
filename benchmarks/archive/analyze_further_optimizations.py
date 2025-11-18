@@ -51,7 +51,7 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 baseline = np.mean(times)
-print(f"  Time: {baseline:.3f} ms ({N/baseline*1000/1e6:.0f} M/s)")
+print(f"  Time: {baseline:.3f} ms ({N / baseline * 1000 / 1e6:.0f} M/s)")
 
 # ============================================================================
 # OPTIMIZATION 1: Reduce clipping (clip only at end)
@@ -116,9 +116,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 opt1_time = np.mean(times)
-print(f"\nReduced clipping:")
-print(f"  Time: {opt1_time:.3f} ms ({N/opt1_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/opt1_time:.2f}x")
+print("\nReduced clipping:")
+print(f"  Time: {opt1_time:.3f} ms ({N / opt1_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / opt1_time:.2f}x")
 
 # ============================================================================
 # OPTIMIZATION 2: Skip saturation when saturation == 1.0
@@ -135,7 +135,7 @@ def fused_skip_saturation(colors, r_lut, g_lut, b_lut, saturation, shadows, high
     N = colors.shape[0]
     lut_size = r_lut.shape[0]
     lut_max = lut_size - 1
-    skip_sat = (saturation == 1.0)
+    skip_sat = saturation == 1.0
 
     for i in prange(N):
         r = colors[i, 0]
@@ -184,9 +184,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 opt2_time = np.mean(times)
-print(f"\nSkip saturation (saturation=1.0):")
-print(f"  Time: {opt2_time:.3f} ms ({N/opt2_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/opt2_time:.2f}x")
+print("\nSkip saturation (saturation=1.0):")
+print(f"  Time: {opt2_time:.3f} ms ({N / opt2_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / opt2_time:.2f}x")
 
 # ============================================================================
 # OPTIMIZATION 3: Calculate luminance once
@@ -253,9 +253,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 opt3_time = np.mean(times)
-print(f"\nSingle luminance calculation:")
-print(f"  Time: {opt3_time:.3f} ms ({N/opt3_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/opt3_time:.2f}x")
+print("\nSingle luminance calculation:")
+print(f"  Time: {opt3_time:.3f} ms ({N / opt3_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / opt3_time:.2f}x")
 print("  Note: Must calculate twice for correct shadows/highlights")
 
 # ============================================================================
@@ -322,9 +322,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 opt4_time = np.mean(times)
-print(f"\nInterleaved LUT:")
-print(f"  Time: {opt4_time:.3f} ms ({N/opt4_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/opt4_time:.2f}x")
+print("\nInterleaved LUT:")
+print(f"  Time: {opt4_time:.3f} ms ({N / opt4_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / opt4_time:.2f}x")
 
 # ============================================================================
 # OPTIMIZATION 5: Combined optimizations
@@ -387,9 +387,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 opt5_time = np.mean(times)
-print(f"\nCombined ultra-optimized:")
-print(f"  Time: {opt5_time:.3f} ms ({N/opt5_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/opt5_time:.2f}x")
+print("\nCombined ultra-optimized:")
+print(f"  Time: {opt5_time:.3f} ms ({N / opt5_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / opt5_time:.2f}x")
 
 # ============================================================================
 # SUMMARY
@@ -411,33 +411,33 @@ results = [
 print(f"\n{'Optimization':<25s} {'Time':<12s} {'Throughput':<15s} {'Speedup':<10s}")
 print("-" * 80)
 for name, t, speedup in results:
-    print(
-        f"{name:<25s} {t:>8.3f} ms    {N/t*1000/1e6:>6.0f} M/s        {speedup:>5.2f}x"
-    )
+    print(f"{name:<25s} {t:>8.3f} ms    {N / t * 1000 / 1e6:>6.0f} M/s        {speedup:>5.2f}x")
 
 best_time = min(opt1_time, opt2_time, opt3_time, opt4_time, opt5_time)
 best_speedup = baseline / best_time
 
-print(f"\n{'='*80}")
-print(f"BEST RESULT: {best_time:.3f} ms ({N/best_time*1000/1e6:.0f} M/s) - {best_speedup:.2f}x speedup!")
-print(f"{'='*80}")
+print(f"\n{'=' * 80}")
+print(
+    f"BEST RESULT: {best_time:.3f} ms ({N / best_time * 1000 / 1e6:.0f} M/s) - {best_speedup:.2f}x speedup!"
+)
+print(f"{'=' * 80}")
 
 print(
     f"""
 RECOMMENDATIONS:
 ================
 
-1. REDUCED CLIPPING: {baseline/opt1_time:.2f}x speedup
+1. REDUCED CLIPPING: {baseline / opt1_time:.2f}x speedup
    - Only clip at final output
    - Trust fastmath for intermediate overflow handling
    - Safe because final clip catches all out-of-range values
 
-2. INTERLEAVED LUT: {baseline/opt4_time:.2f}x speedup
+2. INTERLEAVED LUT: {baseline / opt4_time:.2f}x speedup
    - Better cache locality (1 array vs 3 arrays)
    - Fewer memory accesses
    - Worth considering if speedup > 1.05x
 
-3. SKIP SATURATION: {baseline/opt2_time:.2f}x speedup (when saturation=1.0)
+3. SKIP SATURATION: {baseline / opt2_time:.2f}x speedup (when saturation=1.0)
    - Branchless detection and skip
    - Useful for many common cases
 

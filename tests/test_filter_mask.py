@@ -181,13 +181,13 @@ class TestFilterGetMask:
         start = time.perf_counter()
         for _ in range(100):
             mask = pipeline.get_mask(sample_gsdata)
-        time_get_mask = time.perf_counter() - start
+        _ = time.perf_counter() - start
 
         # Time apply (slower - includes data copying)
         start = time.perf_counter()
         for _ in range(100):
             filtered = pipeline.apply(sample_gsdata, inplace=False)
-        time_apply = time.perf_counter() - start
+        _ = time.perf_counter() - start
 
         # get_mask should be faster (no data copying)
         # But we won't assert this as it depends on hardware

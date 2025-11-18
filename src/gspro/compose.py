@@ -14,7 +14,7 @@ Key Features:
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 from gsply import GSData
@@ -99,8 +99,7 @@ def compose_with_transforms(
     """
     if len(scenes) != len(transforms):
         raise ValueError(
-            f"Number of scenes ({len(scenes)}) must match number of transforms "
-            f"({len(transforms)})"
+            f"Number of scenes ({len(scenes)}) must match number of transforms ({len(transforms)})"
         )
 
     logger.info("[Compose] Transforming %d scenes before composition", len(scenes))
@@ -156,14 +155,10 @@ def deduplicate(
     logger.info("[Compose] Deduplicating %d Gaussians", len(data))
 
     if method not in {"first", "last", "average"}:
-        raise ValueError(
-            f"method='{method}' is not valid. Valid options are: first, last, average"
-        )
+        raise ValueError(f"method='{method}' is not valid. Valid options are: first, last, average")
 
     if method == "average":
-        raise NotImplementedError(
-            "average method not yet implemented. Use 'first' or 'last'."
-        )
+        raise NotImplementedError("average method not yet implemented. Use 'first' or 'last'.")
 
     means = data.means
     n = len(data)

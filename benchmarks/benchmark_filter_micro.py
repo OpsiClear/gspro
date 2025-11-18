@@ -87,7 +87,7 @@ def main():
     print(f"  Min:        {min_time:.3f} ms")
     print(f"  Max:        {max_time:.3f} ms")
     print(f"  Throughput: {throughput:.1f}M Gaussians/sec")
-    print(f"  Kept:       {len(new_pos):,} / {n:,} ({len(new_pos)/n*100:.1f}%)")
+    print(f"  Kept:       {len(new_pos):,} / {n:,} ({len(new_pos) / n * 100:.1f}%)")
     print("\n" + "=" * 80)
 
 

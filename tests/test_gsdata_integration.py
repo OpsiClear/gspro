@@ -145,13 +145,11 @@ class TestGSDataIntegration:
         filtered = Filter().min_opacity(threshold=0.2).apply(sample_gsdata)
 
         quat = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        transformed = Transform().rotate_quat(quat).translate([1.0, 2.0, 3.0]).apply(
-            filtered, inplace=True
+        transformed = (
+            Transform().rotate_quat(quat).translate([1.0, 2.0, 3.0]).apply(filtered, inplace=True)
         )
 
-        colored = Color().brightness(1.3).saturation(1.2).apply(
-            transformed, inplace=True
-        )
+        colored = Color().brightness(1.3).saturation(1.2).apply(transformed, inplace=True)
 
         # Final result should be same object as transformed (both were inplace)
         assert colored is transformed
@@ -194,13 +192,7 @@ class TestGSDataIntegration:
         assert len(result) <= len(sample_gsdata)
 
         # Apply color adjustments
-        result2 = (
-            Color()
-            .brightness(1.2)
-            .contrast(1.1)
-            .saturation(1.3)
-            .apply(result, inplace=True)
-        )
+        result2 = Color().brightness(1.2).contrast(1.1).saturation(1.3).apply(result, inplace=True)
 
         assert result2 is result
 

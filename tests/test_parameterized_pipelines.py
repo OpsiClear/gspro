@@ -175,9 +175,7 @@ class TestColorTemplate:
 
     def test_template_applies_defaults(self, sample_gsdata):
         """Test that template applies default parameter values."""
-        template = Color.template(
-            brightness=Param("b", default=1.5, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.5, range=(0.5, 2.0)))
 
         # Apply without params - should use defaults
         result = template(sample_gsdata, inplace=False, params={"b": 1.5})
@@ -187,9 +185,7 @@ class TestColorTemplate:
 
     def test_template_parameter_override(self, sample_gsdata):
         """Test overriding parameter values at runtime."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Use different brightness values
         result1 = template(sample_gsdata, inplace=False, params={"b": 1.5})
@@ -226,9 +222,7 @@ class TestColorTemplate:
 
     def test_template_cache_miss(self, sample_gsdata):
         """Test LRU cache miss with different parameters."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # First call
         template(sample_gsdata, inplace=False, params={"b": 1.2})
@@ -250,9 +244,7 @@ class TestColorTemplate:
             saturation=Param("s", default=1.3, range=(0.0, 3.0)),
         )
 
-        result = template(
-            sample_gsdata, inplace=False, params={"b": 1.5, "c": 1.2, "s": 1.4}
-        )
+        result = template(sample_gsdata, inplace=False, params={"b": 1.5, "c": 1.2, "s": 1.4})
 
         # All operations should be applied
         assert not np.allclose(result.sh0, sample_gsdata.sh0)
@@ -271,27 +263,21 @@ class TestColorTemplate:
 
     def test_template_unknown_parameter(self, sample_gsdata):
         """Test using unknown parameter name."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         with pytest.raises(ValueError, match="Unknown parameter 'x'"):
             template(sample_gsdata, params={"x": 1.5})
 
     def test_template_parameter_out_of_range(self, sample_gsdata):
         """Test parameter value outside defined range."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         with pytest.raises(ValueError, match="b=2.5 outside valid range"):
             template(sample_gsdata, params={"b": 2.5})
 
     def test_template_without_params_uses_defaults(self, sample_gsdata):
         """Test calling template without params uses default values."""
-        template = Color.template(
-            brightness=Param("b", default=1.5, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.5, range=(0.5, 2.0)))
 
         # Calling without params should use default parameter values
         result = template(sample_gsdata, inplace=False)
@@ -309,9 +295,7 @@ class TestColorTemplate:
 
     def test_template_inplace_mode(self, sample_gsdata):
         """Test template with inplace=True."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         original_sh0 = sample_gsdata.sh0.copy()
 
@@ -325,9 +309,7 @@ class TestColorTemplate:
 
     def test_template_copy_mode(self, sample_gsdata):
         """Test template with inplace=False."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         original_sh0 = sample_gsdata.sh0.copy()
 
@@ -344,9 +326,7 @@ class TestColorTemplate:
 
     def test_template_copy_preserves_cache(self):
         """Test that copying a template preserves the cache."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Populate cache
         template._lut_cache[("b", 1.5)] = np.random.rand(1024, 3).astype(np.float32)
@@ -361,9 +341,7 @@ class TestColorTemplate:
 
     def test_template_reset_clears_cache(self):
         """Test that reset() clears the cache."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Populate cache
         template._lut_cache[("b", 1.5)] = np.random.rand(1024, 3).astype(np.float32)
@@ -382,9 +360,7 @@ class TestCachePerformance:
 
     def test_animation_use_case(self, sample_gsdata):
         """Test animation scenario with parameter sweep."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Simulate 20 frames with varying brightness
         brightness_values = np.linspace(0.8, 1.8, 20)
@@ -457,9 +433,7 @@ class TestEdgeCases:
 
     def test_large_cache(self, sample_gsdata):
         """Test template with large cache (100 unique combinations)."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Create 100 unique parameter values
         brightness_values = np.linspace(0.5, 2.0, 100)
@@ -476,13 +450,11 @@ class TestEdgeCases:
 
     def test_parameter_float_precision(self, sample_gsdata):
         """Test that floating point precision doesn't cause cache misses."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Use slightly different float representations
-        result1 = template(sample_gsdata, inplace=False, params={"b": 1.5})
-        result2 = template(sample_gsdata, inplace=False, params={"b": 1.5000000000001})
+        template(sample_gsdata, inplace=False, params={"b": 1.5})
+        template(sample_gsdata, inplace=False, params={"b": 1.5000000000001})
 
         # These should be treated as different (no float tolerance in cache keys)
         # This is intentional - exact parameter values are cached
@@ -490,9 +462,7 @@ class TestEdgeCases:
 
     def test_template_with_single_parameter(self, sample_gsdata):
         """Test template with only one parameter."""
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         result = template(sample_gsdata, inplace=False, params={"b": 1.5})
 
@@ -513,16 +483,12 @@ class TestIntegration:
 
         # User adjusts brightness slider
         for b in [1.0, 1.1, 1.2, 1.3, 1.4, 1.5]:
-            result = template(
-                sample_gsdata, inplace=False, params={"b": b, "c": 1.1, "s": 1.3}
-            )
+            result = template(sample_gsdata, inplace=False, params={"b": b, "c": 1.1, "s": 1.3})
             assert isinstance(result, GSData)
 
         # User adjusts contrast slider
         for c in [1.0, 1.05, 1.1, 1.15, 1.2]:
-            result = template(
-                sample_gsdata, inplace=False, params={"b": 1.2, "c": c, "s": 1.3}
-            )
+            result = template(sample_gsdata, inplace=False, params={"b": 1.2, "c": c, "s": 1.3})
             assert isinstance(result, GSData)
 
         # Total unique combinations: 6 + 5 - 1 (overlap at b=1.2, c=1.1) = 10
@@ -555,6 +521,6 @@ class TestIntegration:
         for name1 in presets:
             for name2 in presets:
                 if name1 != name2:
-                    assert not np.allclose(
-                        results[name1].sh0, results[name2].sh0
-                    ), f"{name1} and {name2} should be different"
+                    assert not np.allclose(results[name1].sh0, results[name2].sh0), (
+                        f"{name1} and {name2} should be different"
+                    )

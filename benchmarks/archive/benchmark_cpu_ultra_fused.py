@@ -13,10 +13,9 @@ import time
 import numpy as np
 import torch
 
-from gspro import ColorLUT
-
 # Check Numba availability
 import gspro.color as color_module
+from gspro import ColorLUT
 
 print("=" * 80)
 print("CPU ULTRA-FUSED KERNEL BENCHMARK")
@@ -90,7 +89,7 @@ for N in batch_sizes:
     standard_time = np.mean(times)
     standard_std = np.std(times)
     print(f"  Time:       {standard_time:.3f} ms +/- {standard_std:.3f} ms")
-    print(f"  Throughput: {N/standard_time*1000/1e6:.1f} M colors/sec")
+    print(f"  Throughput: {N / standard_time * 1000 / 1e6:.1f} M colors/sec")
 
     # Test 2: Ultra-fused kernel
     print("\n[2] Ultra-Fused Kernel (LUT + Phase 2 in one pass):")
@@ -118,7 +117,7 @@ for N in batch_sizes:
     fused_time = np.mean(times)
     fused_std = np.std(times)
     print(f"  Time:       {fused_time:.3f} ms +/- {fused_std:.3f} ms")
-    print(f"  Throughput: {N/fused_time*1000/1e6:.1f} M colors/sec")
+    print(f"  Throughput: {N / fused_time * 1000 / 1e6:.1f} M colors/sec")
 
     # Speedup
     speedup = standard_time / fused_time

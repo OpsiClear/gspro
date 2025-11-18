@@ -9,12 +9,8 @@ import pytest
 
 from gspro.transform.api import _quaternion_multiply_numpy
 
-
 # Import Numba kernels - tests will be skipped if not available
-transform_kernels = pytest.importorskip(
-    "gspro.transform.kernels",
-    reason="Numba not installed"
-)
+transform_kernels = pytest.importorskip("gspro.transform.kernels", reason="Numba not installed")
 
 
 class TestNumbaKernels:

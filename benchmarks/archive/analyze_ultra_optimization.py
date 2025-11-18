@@ -8,7 +8,6 @@ Target: Can we reach 0.02-0.04 ms (2,500-5,000 M/s)?
 import time
 
 import numpy as np
-
 from gspro.numba_ops import fused_color_full_pipeline_numba
 
 print("=" * 80)
@@ -29,7 +28,7 @@ b_lut = np.linspace(0, 1, lut_size, dtype=np.float32)
 for _ in range(10):
     fused_color_full_pipeline_numba(colors, r_lut, g_lut, b_lut, 1.3, 1.1, 0.9, out)
 
-print(f"\n[BASELINE] Current fused kernel performance:")
+print("\n[BASELINE] Current fused kernel performance:")
 times = []
 for _ in range(100):
     start = time.perf_counter()
@@ -37,7 +36,7 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 baseline = np.mean(times)
-print(f"  Time: {baseline:.3f} ms ({N/baseline*1000/1e6:.0f} M/s)")
+print(f"  Time: {baseline:.3f} ms ({N / baseline * 1000 / 1e6:.0f} M/s)")
 
 # ============================================================================
 # OPTIMIZATION 1: Branchless Phase 2 (eliminate branch misprediction)
@@ -106,9 +105,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 branchless_time = np.mean(times)
-print(f"\nBranchless version:")
-print(f"  Time: {branchless_time:.3f} ms ({N/branchless_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/branchless_time:.2f}x")
+print("\nBranchless version:")
+print(f"  Time: {branchless_time:.3f} ms ({N / branchless_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / branchless_time:.2f}x")
 
 # ============================================================================
 # OPTIMIZATION 2: Smaller LUT with linear interpolation
@@ -126,9 +125,7 @@ b_lut_small = np.linspace(0, 1, small_lut_size, dtype=np.float32)
 
 
 @njit(parallel=True, fastmath=True, cache=True)
-def fused_interpolated_lut(
-    colors, r_lut, g_lut, b_lut, saturation, shadows, highlights, out
-):
+def fused_interpolated_lut(colors, r_lut, g_lut, b_lut, saturation, shadows, highlights, out):
     """Version with linear interpolation for LUT lookup."""
     N = colors.shape[0]
     lut_size = r_lut.shape[0]
@@ -190,23 +187,19 @@ for test_lut_size, test_luts in [
     (64, (np.linspace(0, 1, 64, dtype=np.float32),) * 3),
 ]:
     # Warmup
-    fused_interpolated_lut(
-        colors, test_luts[0], test_luts[1], test_luts[2], 1.3, 1.1, 0.9, out
-    )
+    fused_interpolated_lut(colors, test_luts[0], test_luts[1], test_luts[2], 1.3, 1.1, 0.9, out)
 
     times = []
     for _ in range(100):
         start = time.perf_counter()
-        fused_interpolated_lut(
-            colors, test_luts[0], test_luts[1], test_luts[2], 1.3, 1.1, 0.9, out
-        )
+        fused_interpolated_lut(colors, test_luts[0], test_luts[1], test_luts[2], 1.3, 1.1, 0.9, out)
         times.append((time.perf_counter() - start) * 1000)
 
     interp_time = np.mean(times)
     lut_bytes = test_lut_size * 3 * 4  # 3 LUTs, float32
-    print(f"\nLUT size {test_lut_size} ({lut_bytes/1024:.2f} KB):")
-    print(f"  Time: {interp_time:.3f} ms ({N/interp_time*1000/1e6:.0f} M/s)")
-    print(f"  Speedup: {baseline/interp_time:.2f}x vs baseline")
+    print(f"\nLUT size {test_lut_size} ({lut_bytes / 1024:.2f} KB):")
+    print(f"  Time: {interp_time:.3f} ms ({N / interp_time * 1000 / 1e6:.0f} M/s)")
+    print(f"  Speedup: {baseline / interp_time:.2f}x vs baseline")
 
 # ============================================================================
 # OPTIMIZATION 3: Skip identity LUT (when params are defaults)
@@ -260,9 +253,9 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 skip_time = np.mean(times)
-print(f"\nSkip identity LUT (Phase 2 only):")
-print(f"  Time: {skip_time:.3f} ms ({N/skip_time*1000/1e6:.0f} M/s)")
-print(f"  Speedup: {baseline/skip_time:.2f}x vs baseline")
+print("\nSkip identity LUT (Phase 2 only):")
+print(f"  Time: {skip_time:.3f} ms ({N / skip_time * 1000 / 1e6:.0f} M/s)")
+print(f"  Speedup: {baseline / skip_time:.2f}x vs baseline")
 
 # ============================================================================
 # SUMMARY
@@ -273,17 +266,17 @@ print("OPTIMIZATION SUMMARY")
 print("=" * 80)
 
 print(f"""
-Baseline (current):          {baseline:.3f} ms ({N/baseline*1000/1e6:.0f} M/s)  1.00x
+Baseline (current):          {baseline:.3f} ms ({N / baseline * 1000 / 1e6:.0f} M/s)  1.00x
 
-Branchless Phase 2:          {branchless_time:.3f} ms ({N/branchless_time*1000/1e6:.0f} M/s)  {baseline/branchless_time:.2f}x
-Skip identity LUT:           {skip_time:.3f} ms ({N/skip_time*1000/1e6:.0f} M/s)  {baseline/skip_time:.2f}x
+Branchless Phase 2:          {branchless_time:.3f} ms ({N / branchless_time * 1000 / 1e6:.0f} M/s)  {baseline / branchless_time:.2f}x
+Skip identity LUT:           {skip_time:.3f} ms ({N / skip_time * 1000 / 1e6:.0f} M/s)  {baseline / skip_time:.2f}x
 
 Best small LUT (64 entries): See results above
 
 RECOMMENDATIONS:
 ================
 
-1. BRANCHLESS PHASE 2: {'[YES]' if baseline/branchless_time > 1.05 else '[NO]'} ({baseline/branchless_time:.2f}x speedup)
+1. BRANCHLESS PHASE 2: {"[YES]" if baseline / branchless_time > 1.05 else "[NO]"} ({baseline / branchless_time:.2f}x speedup)
    - Eliminates branch misprediction
    - Same correctness
 
@@ -292,7 +285,7 @@ RECOMMENDATIONS:
    - Higher quality (smooth gradients)
    - Trade computation for memory bandwidth
 
-3. SKIP IDENTITY LUT: {baseline/skip_time:.2f}x speedup
+3. SKIP IDENTITY LUT: {baseline / skip_time:.2f}x speedup
    - Detect when temp=0.5, bright=1.0, contrast=1.0, gamma=1.0
    - Skip LUT lookup entirely
    - Use separate fast path

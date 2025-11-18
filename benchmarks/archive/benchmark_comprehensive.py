@@ -81,9 +81,7 @@ results.append(result)
 # Test apply_numpy_inplace()
 result = benchmark_api(
     "apply_numpy_inplace()",
-    lambda: lut.apply_numpy_inplace(
-        colors, out, temperature=0.5, brightness=1.2, saturation=1.3
-    ),
+    lambda: lut.apply_numpy_inplace(colors, out, temperature=0.5, brightness=1.2, saturation=1.3),
     colors,
 )
 results.append(result)
@@ -115,9 +113,7 @@ for batch_size in batch_sizes:
 
     lut = ColorLUT(device="cpu")
     # Pre-compile
-    lut.apply_numpy_inplace(
-        colors[:10], out[:10], temperature=0.5, brightness=1.2, saturation=1.3
-    )
+    lut.apply_numpy_inplace(colors[:10], out[:10], temperature=0.5, brightness=1.2, saturation=1.3)
 
     result = benchmark_api(
         f"{batch_size:,} colors",
@@ -157,9 +153,7 @@ times_with_compile = []
 for _ in range(20):
     lut_fresh = ColorLUT(device="cpu")  # Fresh LUT each time
     start = time.perf_counter()
-    lut_fresh.apply_numpy_inplace(
-        colors, out, temperature=0.5, brightness=1.2, saturation=1.3
-    )
+    lut_fresh.apply_numpy_inplace(colors, out, temperature=0.5, brightness=1.2, saturation=1.3)
     times_with_compile.append((time.perf_counter() - start) * 1000)
 
 # Test with cached LUT (no compilation)
@@ -170,18 +164,20 @@ lut_cached.apply_numpy_inplace(
 times_cached = []
 for _ in range(100):
     start = time.perf_counter()
-    lut_cached.apply_numpy_inplace(
-        colors, out, temperature=0.5, brightness=1.2, saturation=1.3
-    )
+    lut_cached.apply_numpy_inplace(colors, out, temperature=0.5, brightness=1.2, saturation=1.3)
     times_cached.append((time.perf_counter() - start) * 1000)
 
 time_with_compile = np.mean(times_with_compile)
 time_cached = np.mean(times_cached)
 compile_overhead = time_with_compile - time_cached
 
-print(f"\nWith LUT compilation:  {time_with_compile:>8.3f} ms +/- {np.std(times_with_compile):>5.3f} ms")
+print(
+    f"\nWith LUT compilation:  {time_with_compile:>8.3f} ms +/- {np.std(times_with_compile):>5.3f} ms"
+)
 print(f"Cached LUT (no compile): {time_cached:>8.3f} ms +/- {np.std(times_cached):>5.3f} ms")
-print(f"Compilation overhead:    {compile_overhead:>8.3f} ms ({compile_overhead/time_with_compile*100:.1f}%)")
+print(
+    f"Compilation overhead:    {compile_overhead:>8.3f} ms ({compile_overhead / time_with_compile * 100:.1f}%)"
+)
 
 # ============================================================================
 # BENCHMARK 4: Parameter Variation Impact
@@ -196,11 +192,66 @@ colors = np.random.rand(N, 3).astype(np.float32)
 out = np.empty_like(colors)
 
 param_configs = [
-    ("Identity (all defaults)", {"temperature": 0.5, "brightness": 1.0, "contrast": 1.0, "gamma": 1.0, "saturation": 1.0, "shadows": 1.0, "highlights": 1.0}),
-    ("Temperature only", {"temperature": 0.8, "brightness": 1.0, "contrast": 1.0, "gamma": 1.0, "saturation": 1.0, "shadows": 1.0, "highlights": 1.0}),
-    ("Phase 1 only", {"temperature": 0.7, "brightness": 1.2, "contrast": 1.1, "gamma": 0.9, "saturation": 1.0, "shadows": 1.0, "highlights": 1.0}),
-    ("Phase 2 only", {"temperature": 0.5, "brightness": 1.0, "contrast": 1.0, "gamma": 1.0, "saturation": 1.3, "shadows": 1.1, "highlights": 0.9}),
-    ("All parameters", {"temperature": 0.7, "brightness": 1.2, "contrast": 1.1, "gamma": 0.9, "saturation": 1.3, "shadows": 1.1, "highlights": 0.9}),
+    (
+        "Identity (all defaults)",
+        {
+            "temperature": 0.5,
+            "brightness": 1.0,
+            "contrast": 1.0,
+            "gamma": 1.0,
+            "saturation": 1.0,
+            "shadows": 1.0,
+            "highlights": 1.0,
+        },
+    ),
+    (
+        "Temperature only",
+        {
+            "temperature": 0.8,
+            "brightness": 1.0,
+            "contrast": 1.0,
+            "gamma": 1.0,
+            "saturation": 1.0,
+            "shadows": 1.0,
+            "highlights": 1.0,
+        },
+    ),
+    (
+        "Phase 1 only",
+        {
+            "temperature": 0.7,
+            "brightness": 1.2,
+            "contrast": 1.1,
+            "gamma": 0.9,
+            "saturation": 1.0,
+            "shadows": 1.0,
+            "highlights": 1.0,
+        },
+    ),
+    (
+        "Phase 2 only",
+        {
+            "temperature": 0.5,
+            "brightness": 1.0,
+            "contrast": 1.0,
+            "gamma": 1.0,
+            "saturation": 1.3,
+            "shadows": 1.1,
+            "highlights": 0.9,
+        },
+    ),
+    (
+        "All parameters",
+        {
+            "temperature": 0.7,
+            "brightness": 1.2,
+            "contrast": 1.1,
+            "gamma": 0.9,
+            "saturation": 1.3,
+            "shadows": 1.1,
+            "highlights": 0.9,
+        },
+    ),
 ]
 
 param_results = []
@@ -221,9 +272,7 @@ for name, params in param_configs:
 print(f"\n{'Configuration':<25s} {'Time (ms)':<15s} {'Throughput':<15s}")
 print("-" * 80)
 for r in param_results:
-    print(
-        f"{r['name']:<25s} {r['mean']:>8.3f} +/- {r['std']:>5.3f}   {r['throughput']:>6.0f} M/s"
-    )
+    print(f"{r['name']:<25s} {r['mean']:>8.3f} +/- {r['std']:>5.3f}   {r['throughput']:>6.0f} M/s")
 
 # ============================================================================
 # BENCHMARK 5: Memory Allocation Overhead
@@ -261,7 +310,9 @@ alloc_overhead = time_with_alloc - time_inplace
 
 print(f"\nPre-allocated buffer:  {time_inplace:>8.3f} ms +/- {np.std(times_inplace):>5.3f} ms")
 print(f"With allocation:       {time_with_alloc:>8.3f} ms +/- {np.std(times_with_alloc):>5.3f} ms")
-print(f"Allocation overhead:   {alloc_overhead:>8.3f} ms ({alloc_overhead/time_with_alloc*100:.1f}%)")
+print(
+    f"Allocation overhead:   {alloc_overhead:>8.3f} ms ({alloc_overhead / time_with_alloc * 100:.1f}%)"
+)
 
 # ============================================================================
 # FINAL SUMMARY
@@ -274,21 +325,25 @@ print("=" * 80)
 best_throughput = max(r["throughput"] for r in results)
 best_time = min(r["mean"] for r in results)
 
-print(f"\nBest Performance:")
-print(f"  Method: apply_numpy_inplace()")
+print("\nBest Performance:")
+print("  Method: apply_numpy_inplace()")
 print(f"  Time: {best_time:.3f} ms (100K colors)")
 print(f"  Throughput: {best_throughput:.0f} M colors/sec")
-print(f"  Latency: {best_time/N*1e6:.3f} ns/color")
+print(f"  Latency: {best_time / N * 1e6:.3f} ns/color")
 print()
-print(f"Scaling:")
+print("Scaling:")
 print(f"  1K colors:   {scaling_results[0]['mean']:.4f} ms")
 print(f"  10K colors:  {scaling_results[1]['mean']:.4f} ms")
 print(f"  100K colors: {scaling_results[2]['mean']:.3f} ms")
 print(f"  1M colors:   {scaling_results[3]['mean']:.2f} ms")
 print()
-print(f"Overhead Analysis:")
-print(f"  LUT compilation: {compile_overhead:.3f} ms ({compile_overhead/time_with_compile*100:.1f}%)")
-print(f"  Memory allocation: {alloc_overhead:.3f} ms ({alloc_overhead/time_with_alloc*100:.1f}%)")
+print("Overhead Analysis:")
+print(
+    f"  LUT compilation: {compile_overhead:.3f} ms ({compile_overhead / time_with_compile * 100:.1f}%)"
+)
+print(
+    f"  Memory allocation: {alloc_overhead:.3f} ms ({alloc_overhead / time_with_alloc * 100:.1f}%)"
+)
 print()
 print("Recommendations:")
 print("  - Use apply_numpy_inplace() for maximum performance")

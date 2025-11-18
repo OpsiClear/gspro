@@ -2,8 +2,8 @@
 Verify correctness of fused color Phase 2 kernel.
 """
 
-import numpy as np
 import torch
+
 from gspro import ColorLUT
 
 print("=" * 80)
@@ -19,6 +19,7 @@ lut_fused = ColorLUT(device="cpu", lut_size=1024)
 
 # Temporarily disable Numba for standard path
 import gspro.color as color_module
+
 original_numba_available = color_module.NUMBA_AVAILABLE
 color_module.NUMBA_AVAILABLE = False
 

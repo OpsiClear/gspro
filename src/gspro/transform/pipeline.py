@@ -44,8 +44,8 @@ from gspro.transform.kernels import (
 
 logger = logging.getLogger(__name__)
 
-# Type aliases for better readability
-ArrayLike = np.ndarray | tuple | list
+# Type aliases for better readability (Python 3.12+ syntax)
+type ArrayLike = np.ndarray | tuple | list
 
 
 class Transform:

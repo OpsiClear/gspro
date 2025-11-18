@@ -2,9 +2,8 @@
 
 import numpy as np
 import pytest
-import time
-
 from gsply import GSData
+
 from gspro.transform.pipeline import Transform
 
 
@@ -47,10 +46,11 @@ class TestTransform:
         pipeline = Transform()
 
         # Test chaining
-        result = (pipeline
-                 .scale(2.0)
-                 .rotate_quat(np.array([1.0, 0.0, 0.0, 0.0]))
-                 .translate([1.0, 2.0, 3.0]))
+        result = (
+            pipeline.scale(2.0)
+            .rotate_quat(np.array([1.0, 0.0, 0.0, 0.0]))
+            .translate([1.0, 2.0, 3.0])
+        )
 
         assert result is pipeline
         assert len(pipeline._transforms) == 3
@@ -81,7 +81,7 @@ class TestTransform:
         assert pipeline._compiled_matrix is None
 
         # Apply triggers compilation
-        result = pipeline.apply(sample_gsdata, inplace=False)
+        pipeline.apply(sample_gsdata, inplace=False)
 
         # Now compiled
         assert pipeline._compiled_matrix is not None
@@ -192,12 +192,12 @@ class TestTransform:
 
         # Test Euler angles
         pipeline_euler = Transform()
-        pipeline_euler.rotate_euler([0.0, 0.0, np.pi/2])
+        pipeline_euler.rotate_euler([0.0, 0.0, np.pi / 2])
         result_euler = pipeline_euler.apply(test_gsdata, inplace=False)
 
         # Test axis-angle
         pipeline_axis = Transform()
-        pipeline_axis.rotate_axis_angle(axis=[0.0, 0.0, 1.0], angle=np.pi/2)
+        pipeline_axis.rotate_axis_angle(axis=[0.0, 0.0, 1.0], angle=np.pi / 2)
         result_axis = pipeline_axis.apply(test_gsdata, inplace=False)
 
         # Both should give similar results (90 degree rotation around Z)

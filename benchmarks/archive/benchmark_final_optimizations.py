@@ -47,7 +47,7 @@ for _ in range(100):
 
 baseline = np.mean(times)
 print(f"  Time: {baseline:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/baseline*1000/1e6:.0f} M/s")
+print(f"  Throughput: {N / baseline * 1000 / 1e6:.0f} M/s")
 
 # ============================================================================
 # OPTIMIZATION 1: Interleaved LUT
@@ -71,11 +71,11 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 interleaved_time = np.mean(times)
-print(f"\nInterleaved LUT:")
+print("\nInterleaved LUT:")
 print(f"  Time: {interleaved_time:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/interleaved_time*1000/1e6:.0f} M/s")
-print(f"  Speedup: {baseline/interleaved_time:.2f}x")
-print(f"  Status: {'[SUCCESS]' if baseline/interleaved_time > 1.05 else '[MINIMAL]'}")
+print(f"  Throughput: {N / interleaved_time * 1000 / 1e6:.0f} M/s")
+print(f"  Speedup: {baseline / interleaved_time:.2f}x")
+print(f"  Status: {'[SUCCESS]' if baseline / interleaved_time > 1.05 else '[MINIMAL]'}")
 
 # ============================================================================
 # OPTIMIZATION 2: Custom prange block sizes
@@ -139,11 +139,11 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 schedule_time = np.mean(times)
-print(f"\nCustom prange schedule:")
+print("\nCustom prange schedule:")
 print(f"  Time: {schedule_time:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/schedule_time*1000/1e6:.0f} M/s")
-print(f"  Speedup: {baseline/schedule_time:.2f}x")
-print(f"  Note: Numba auto-determines optimal schedule")
+print(f"  Throughput: {N / schedule_time * 1000 / 1e6:.0f} M/s")
+print(f"  Speedup: {baseline / schedule_time:.2f}x")
+print("  Note: Numba auto-determines optimal schedule")
 
 # ============================================================================
 # OPTIMIZATION 3: Combined (Interleaved + Optimized Schedule)
@@ -202,10 +202,10 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 combined_time = np.mean(times)
-print(f"\nCombined optimizations:")
+print("\nCombined optimizations:")
 print(f"  Time: {combined_time:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/combined_time*1000/1e6:.0f} M/s")
-print(f"  Speedup: {baseline/combined_time:.2f}x")
+print(f"  Throughput: {N / combined_time * 1000 / 1e6:.0f} M/s")
+print(f"  Speedup: {baseline / combined_time:.2f}x")
 
 # ============================================================================
 # SUMMARY
@@ -225,49 +225,47 @@ results = [
 print(f"\n{'Optimization':<30s} {'Time':<15s} {'Throughput':<15s} {'Speedup':<10s}")
 print("-" * 80)
 for name, t, speedup in results:
-    print(
-        f"{name:<30s} {t:>8.3f} ms      {N/t*1000/1e6:>6.0f} M/s        {speedup:>5.2f}x"
-    )
+    print(f"{name:<30s} {t:>8.3f} ms      {N / t * 1000 / 1e6:>6.0f} M/s        {speedup:>5.2f}x")
 
 best_time = min(interleaved_time, schedule_time, combined_time)
 total_speedup = baseline / best_time
 
-print(f"\n{'='*80}")
+print(f"\n{'=' * 80}")
 if total_speedup > 1.1:
-    print(f"[SUCCESS] Best result: {best_time:.3f} ms ({N/best_time*1000/1e6:.0f} M/s)")
+    print(f"[SUCCESS] Best result: {best_time:.3f} ms ({N / best_time * 1000 / 1e6:.0f} M/s)")
     print(f"Total speedup: {total_speedup:.2f}x over current best!")
 elif total_speedup > 1.0:
     print(f"[MARGINAL] Small improvement: {total_speedup:.2f}x")
-    print(f"May not be worth the complexity")
+    print("May not be worth the complexity")
 else:
-    print(f"[NO IMPROVEMENT] Current implementation is already optimal")
+    print("[NO IMPROVEMENT] Current implementation is already optimal")
     print(f"Speedup: {total_speedup:.2f}x (slower)")
 
-print(f"{'='*80}")
+print(f"{'=' * 80}")
 
 print(
     f"""
 DETAILED ANALYSIS:
 ==================
 
-1. INTERLEAVED LUT: {baseline/interleaved_time:.2f}x
+1. INTERLEAVED LUT: {baseline / interleaved_time:.2f}x
    - Single [1024, 3] array vs 3 separate arrays
    - Better cache locality: fewer cache lines loaded
-   - {'[IMPLEMENT]' if baseline/interleaved_time > 1.05 else '[SKIP]'} - {'Worth implementing' if baseline/interleaved_time > 1.05 else 'Minimal benefit'}
+   - {"[IMPLEMENT]" if baseline / interleaved_time > 1.05 else "[SKIP]"} - {"Worth implementing" if baseline / interleaved_time > 1.05 else "Minimal benefit"}
 
-2. CUSTOM SCHEDULE: {baseline/schedule_time:.2f}x
+2. CUSTOM SCHEDULE: {baseline / schedule_time:.2f}x
    - Numba auto-schedules prange for optimal performance
    - Manual tuning rarely beats auto-schedule
-   - {'[IMPLEMENT]' if baseline/schedule_time > 1.05 else '[SKIP]'} - {'Manual tuning helped' if baseline/schedule_time > 1.05 else 'Auto-schedule is optimal'}
+   - {"[IMPLEMENT]" if baseline / schedule_time > 1.05 else "[SKIP]"} - {"Manual tuning helped" if baseline / schedule_time > 1.05 else "Auto-schedule is optimal"}
 
-3. COMBINED: {baseline/combined_time:.2f}x
+3. COMBINED: {baseline / combined_time:.2f}x
    - Best of all optimizations
-   - {'[IMPLEMENT]' if baseline/combined_time > 1.05 else '[SKIP]'} - {'Significant improvement' if baseline/combined_time > 1.05 else 'No meaningful gain'}
+   - {"[IMPLEMENT]" if baseline / combined_time > 1.05 else "[SKIP]"} - {"Significant improvement" if baseline / combined_time > 1.05 else "No meaningful gain"}
 
 RECOMMENDATION:
 ===============
 
-Current performance: {baseline:.3f} ms ({N/baseline*1000/1e6:.0f} M/s)
+Current performance: {baseline:.3f} ms ({N / baseline * 1000 / 1e6:.0f} M/s)
 """
 )
 

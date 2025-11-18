@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any
 
-F = TypeVar("F", bound=Callable[..., Any])
+# Python 3.12+ type alias for callables
+type F = Callable[..., Any]
 
 
 def validate_range(
@@ -64,7 +65,11 @@ def validate_range(
                     suggestion = " Larger LUTs increase memory usage with diminishing quality gains. Use 1024 (default) or 4096 for high precision."
                 elif "opacity" in param_name:
                     suggestion = " Use 0.0 for fully transparent, 1.0 for fully opaque."
-                elif "brightness" in param_name or "contrast" in param_name or "saturation" in param_name:
+                elif (
+                    "brightness" in param_name
+                    or "contrast" in param_name
+                    or "saturation" in param_name
+                ):
                     suggestion = " Use 1.0 for no change, >1.0 to increase, <1.0 to decrease."
                 elif "temperature" in param_name:
                     suggestion = " Use 0.0 for cool (blue), 0.5 for neutral, 1.0 for warm (orange)."
@@ -123,9 +128,7 @@ def validate_positive(param_name: str = "value", param_index: int = 1) -> Callab
                 elif "scale" in param_name:
                     suggestion = " Scale must be positive. Use 1.0 for no change, >1.0 to enlarge, <1.0 to shrink."
 
-                raise ValueError(
-                    f"{param_name}={value} must be positive (> 0).{suggestion}"
-                )
+                raise ValueError(f"{param_name}={value} must be positive (> 0).{suggestion}")
 
             return func(*args, **kwargs)
 
@@ -224,8 +227,7 @@ def validate_choices(
             if value not in valid_choices:
                 choices_str = ", ".join(sorted(valid_choices))
                 raise ValueError(
-                    f"{param_name}='{value}' is not valid. "
-                    f"Valid options are: {choices_str}"
+                    f"{param_name}='{value}' is not valid. Valid options are: {choices_str}"
                 )
 
             return func(*args, **kwargs)

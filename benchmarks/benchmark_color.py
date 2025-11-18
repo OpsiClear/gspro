@@ -3,7 +3,9 @@ Benchmark color processing performance (pure NumPy/Numba, no PyTorch).
 """
 
 import time
+
 import numpy as np
+
 from gspro import Color
 
 N = 100_000
@@ -18,14 +20,16 @@ print("=" * 80)
 colors_np = np.random.rand(N, 3).astype(np.float32)
 
 # Create Color pipeline with all adjustments
-pipeline = (Color()
+pipeline = (
+    Color()
     .temperature(0.6)
     .brightness(1.2)
     .contrast(1.1)
     .saturation(1.3)
     .shadows(1.1)
     .highlights(0.9)
-    .compile())  # Pre-compile for maximum performance
+    .compile()
+)  # Pre-compile for maximum performance
 
 # Warmup
 print("\nWarming up...")
@@ -45,9 +49,9 @@ for _ in range(NUM_ITERATIONS):
 mean_time_inplace = np.mean(times_inplace)
 std_time_inplace = np.std(times_inplace)
 
-print(f"\nResults (inplace=True - zero-copy):")
+print("\nResults (inplace=True - zero-copy):")
 print(f"  Time:       {mean_time_inplace:.3f} ms +/- {std_time_inplace:.3f} ms")
-print(f"  Throughput: {N/mean_time_inplace*1000/1e6:.0f} M colors/sec")
+print(f"  Throughput: {N / mean_time_inplace * 1000 / 1e6:.0f} M colors/sec")
 
 # Benchmark with copy
 print(f"\nBenchmarking _apply_to_colors(inplace=False) - {NUM_ITERATIONS} iterations...")
@@ -60,15 +64,15 @@ for _ in range(NUM_ITERATIONS):
 mean_time_copy = np.mean(times_copy)
 std_time_copy = np.std(times_copy)
 
-print(f"\nResults (inplace=False - with copy):")
+print("\nResults (inplace=False - with copy):")
 print(f"  Time:       {mean_time_copy:.3f} ms +/- {std_time_copy:.3f} ms")
-print(f"  Throughput: {N/mean_time_copy*1000/1e6:.0f} M colors/sec")
+print(f"  Throughput: {N / mean_time_copy * 1000 / 1e6:.0f} M colors/sec")
 
 # Speedup comparison
 print("\n" + "=" * 80)
 print("SPEEDUP COMPARISON")
 print("=" * 80)
-print(f"inplace=True vs inplace=False: {mean_time_copy/mean_time_inplace:.2f}x faster")
+print(f"inplace=True vs inplace=False: {mean_time_copy / mean_time_inplace:.2f}x faster")
 
 # Test different batch sizes
 print("\n" + "=" * 80)
@@ -104,7 +108,8 @@ print("=" * 80)
 
 # Test compilation time
 start = time.perf_counter()
-test_pipeline = (Color()
+test_pipeline = (
+    Color()
     .temperature(0.6)
     .brightness(1.2)
     .contrast(1.1)
@@ -112,7 +117,8 @@ test_pipeline = (Color()
     .saturation(1.3)
     .shadows(1.1)
     .highlights(0.9)
-    .compile())
+    .compile()
+)
 compile_time = (time.perf_counter() - start) * 1000
 
 print(f"LUT compilation time: {compile_time:.3f} ms")
@@ -128,6 +134,6 @@ print(f"LUT recompilation time: {recompile_time:.3f} ms")
 print("\n" + "=" * 80)
 print("SUMMARY")
 print("=" * 80)
-print(f"Best throughput: {N/mean_time_inplace*1000/1e6:.0f}M colors/sec")
+print(f"Best throughput: {N / mean_time_inplace * 1000 / 1e6:.0f}M colors/sec")
 print(f"Best latency:    {mean_time_inplace:.3f} ms for {N:,} colors")
 print("=" * 80)

@@ -16,15 +16,10 @@ Key Features:
 from __future__ import annotations
 
 import logging
-import sys
 from copy import deepcopy
-from typing import Any
 
 # Python 3.10 compatibility: Self was added in Python 3.11
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from typing import Any, Self
 
 import numpy as np
 
@@ -743,7 +738,7 @@ class Filter:
                             kwargs["cuboid_size_factor_y"] = size_factors[1]
                             kwargs["cuboid_size_factor_z"] = size_factors[2]
 
-                volume_mask = apply_filter(**kwargs)
+                volume_mask = _apply_filter(**kwargs)
                 mask &= volume_mask
 
             logger.debug(
@@ -929,9 +924,7 @@ class Filter:
             (measured < 0.001ms vs 1.8ms without optimization)
         """
         return (
-            not self._volume_filters
-            and not self._opacity_thresholds
-            and not self._scale_thresholds
+            not self._volume_filters and not self._opacity_thresholds and not self._scale_thresholds
         )
 
     def apply(self, data: GSData, inplace: bool = True) -> GSData:

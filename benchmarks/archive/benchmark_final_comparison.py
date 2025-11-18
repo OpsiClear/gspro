@@ -54,7 +54,7 @@ for _ in range(100):
 
 time1 = np.mean(times)
 print(f"  Time:       {time1:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/time1*1000/1e6:.1f} M colors/sec")
+print(f"  Throughput: {N / time1 * 1000 / 1e6:.1f} M colors/sec")
 
 # Benchmark 2: apply_numpy()
 print("\n[2] apply_numpy() - Pure NumPy API (with allocation):")
@@ -66,8 +66,8 @@ for _ in range(100):
 
 time2 = np.mean(times)
 print(f"  Time:       {time2:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/time2*1000/1e6:.1f} M colors/sec")
-print(f"  Speedup:    {time1/time2:.2f}x vs apply()")
+print(f"  Throughput: {N / time2 * 1000 / 1e6:.1f} M colors/sec")
+print(f"  Speedup:    {time1 / time2:.2f}x vs apply()")
 
 # Benchmark 3: apply_numpy_inplace()
 print("\n[3] apply_numpy_inplace() - Pre-allocated buffer (FASTEST):")
@@ -79,9 +79,9 @@ for _ in range(100):
 
 time3 = np.mean(times)
 print(f"  Time:       {time3:.3f} ms +/- {np.std(times):.3f} ms")
-print(f"  Throughput: {N/time3*1000/1e6:.1f} M colors/sec")
-print(f"  Speedup:    {time1/time3:.2f}x vs apply()")
-print(f"  Speedup:    {time2/time3:.2f}x vs apply_numpy()")
+print(f"  Throughput: {N / time3 * 1000 / 1e6:.1f} M colors/sec")
+print(f"  Speedup:    {time1 / time3:.2f}x vs apply()")
+print(f"  Speedup:    {time2 / time3:.2f}x vs apply_numpy()")
 
 # Correctness
 print("\n" + "=" * 80)
@@ -103,14 +103,14 @@ Performance for {N:,} colors:
 
 Method                      Time        Throughput    Speedup
 ----------------------------------------------------------------------
-apply() (PyTorch)           {time1:.3f} ms    {N/time1*1000/1e6:>5.0f} M/s      1.00x (baseline)
-apply_numpy()               {time2:.3f} ms    {N/time2*1000/1e6:>5.0f} M/s      {time1/time2:.2f}x
-apply_numpy_inplace()       {time3:.3f} ms    {N/time3*1000/1e6:>5.0f} M/s      {time1/time3:.2f}x [FASTEST]
+apply() (PyTorch)           {time1:.3f} ms    {N / time1 * 1000 / 1e6:>5.0f} M/s      1.00x (baseline)
+apply_numpy()               {time2:.3f} ms    {N / time2 * 1000 / 1e6:>5.0f} M/s      {time1 / time2:.2f}x
+apply_numpy_inplace()       {time3:.3f} ms    {N / time3 * 1000 / 1e6:>5.0f} M/s      {time1 / time3:.2f}x [FASTEST]
 
 Key findings:
 - apply() is already using ultra-fused kernel on CPU
-- apply_numpy() eliminates minimal PyTorch overhead ({time1-time2:.3f} ms)
-- apply_numpy_inplace() eliminates allocation overhead ({time2-time3:.3f} ms)
+- apply_numpy() eliminates minimal PyTorch overhead ({time1 - time2:.3f} ms)
+- apply_numpy_inplace() eliminates allocation overhead ({time2 - time3:.3f} ms)
 
 The REAL performance bottleneck: Memory allocation (~75% of time!)
 
@@ -132,5 +132,5 @@ for batch in batches:
     # Use out... (no allocation overhead!)
 ```
 
-Performance: ~{time3:.2f} ms for {N:,} colors = {N/time3*1000/1e6:.0f} M colors/sec
+Performance: ~{time3:.2f} ms for {N:,} colors = {N / time3 * 1000 / 1e6:.0f} M colors/sec
 """)

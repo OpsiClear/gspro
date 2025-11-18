@@ -3,7 +3,9 @@ Benchmark 3D Gaussian transform performance (CPU with fused Numba kernel).
 """
 
 import time
+
 import numpy as np
+
 from gspro import Transform
 
 N = 1_000_000
@@ -25,11 +27,9 @@ rotation_np = np.array([0.9239, 0.0, 0.0, 0.3827], dtype=np.float32)
 scale_factor = 2.0
 
 # Create Transform pipeline with all transformations
-pipeline = (Transform()
-    .scale(scale_factor)
-    .rotate_quat(rotation_np)
-    .translate(translation_np)
-    .compile())  # Pre-compile for maximum performance
+pipeline = (
+    Transform().scale(scale_factor).rotate_quat(rotation_np).translate(translation_np).compile()
+)  # Pre-compile for maximum performance
 
 # Warmup
 print("\nWarming up...")
@@ -54,9 +54,9 @@ for _ in range(NUM_ITERATIONS):
 mean_time = np.mean(times)
 std_time = np.std(times)
 
-print(f"\nResults (1M Gaussians):")
+print("\nResults (1M Gaussians):")
 print(f"  Time:       {mean_time:.3f} ms +/- {std_time:.3f} ms")
-print(f"  Throughput: {N/mean_time*1000/1e6:.1f}M Gaussians/sec")
+print(f"  Throughput: {N / mean_time * 1000 / 1e6:.1f}M Gaussians/sec")
 
 # Test different batch sizes
 print("\n" + "=" * 80)
@@ -100,11 +100,7 @@ print("=" * 80)
 
 # Test compilation time
 start = time.perf_counter()
-test_pipeline = (Transform()
-    .scale(2.0)
-    .rotate_quat(rotation_np)
-    .translate(translation_np)
-    .compile())
+test_pipeline = Transform().scale(2.0).rotate_quat(rotation_np).translate(translation_np).compile()
 compile_time = (time.perf_counter() - start) * 1000
 
 print(f"Matrix compilation time: {compile_time:.3f} ms")
@@ -122,18 +118,18 @@ print("\n" + "=" * 80)
 print("REAL-WORLD USE CASES")
 print("=" * 80)
 
-print(f"\nAnimation processing (1M Gaussians):")
+print("\nAnimation processing (1M Gaussians):")
 print(f"  1 frame:    {mean_time:.1f} ms")
 print(f"  100 frames: {mean_time * 100:.0f} ms ({mean_time * 100 / 1000:.2f}s)")
 print(f"  1000 frames: {mean_time * 1000 / 1000:.1f}s")
 
-print(f"\nReal-time rendering:")
+print("\nReal-time rendering:")
 print(f"  Max FPS:    {1000 / mean_time:.0f} FPS")
 print(f"  Frame time: {mean_time:.2f} ms (target: 16.67ms for 60 FPS)")
 
 print("\n" + "=" * 80)
 print("SUMMARY")
 print("=" * 80)
-print(f"Best throughput: {N/mean_time*1000/1e6:.1f}M Gaussians/sec")
+print(f"Best throughput: {N / mean_time * 1000 / 1e6:.1f}M Gaussians/sec")
 print(f"Best latency:    {mean_time:.3f} ms for {N:,} Gaussians")
 print("=" * 80)

@@ -29,40 +29,54 @@ test_cases = []
 test_cases.append(("Random colors", np.random.rand(N, 3).astype(np.float32)))
 
 # Case 2: Edge values (0, 1, 0.5)
-edge_colors = np.array([[0.0, 0.0, 0.0],
-                        [1.0, 1.0, 1.0],
-                        [0.5, 0.5, 0.5],
-                        [1.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0],
-                        [0.0, 0.0, 1.0],
-                        [0.25, 0.75, 0.5]], dtype=np.float32)
+edge_colors = np.array(
+    [
+        [0.0, 0.0, 0.0],
+        [1.0, 1.0, 1.0],
+        [0.5, 0.5, 0.5],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [0.25, 0.75, 0.5],
+    ],
+    dtype=np.float32,
+)
 test_cases.append(("Edge values", edge_colors))
 
 # Case 3: Values near shadow/highlight threshold (0.5)
-threshold_colors = np.array([
-    [0.49, 0.49, 0.49],
-    [0.50, 0.50, 0.50],
-    [0.51, 0.51, 0.51],
-    [0.499, 0.499, 0.499],
-    [0.501, 0.501, 0.501],
-], dtype=np.float32)
+threshold_colors = np.array(
+    [
+        [0.49, 0.49, 0.49],
+        [0.50, 0.50, 0.50],
+        [0.51, 0.51, 0.51],
+        [0.499, 0.499, 0.499],
+        [0.501, 0.501, 0.501],
+    ],
+    dtype=np.float32,
+)
 test_cases.append(("Threshold values", threshold_colors))
 
 # Case 4: Very small values (test precision)
-tiny_colors = np.array([
-    [1e-6, 1e-6, 1e-6],
-    [1e-5, 1e-5, 1e-5],
-    [1e-4, 1e-4, 1e-4],
-], dtype=np.float32)
+tiny_colors = np.array(
+    [
+        [1e-6, 1e-6, 1e-6],
+        [1e-5, 1e-5, 1e-5],
+        [1e-4, 1e-4, 1e-4],
+    ],
+    dtype=np.float32,
+)
 test_cases.append(("Tiny values", tiny_colors))
 
 # Case 5: Values that will saturate (test clamping)
-saturate_colors = np.array([
-    [0.9, 0.1, 0.1],
-    [0.1, 0.9, 0.1],
-    [0.1, 0.1, 0.9],
-    [0.95, 0.95, 0.95],
-], dtype=np.float32)
+saturate_colors = np.array(
+    [
+        [0.9, 0.1, 0.1],
+        [0.1, 0.9, 0.1],
+        [0.1, 0.1, 0.9],
+        [0.95, 0.95, 0.95],
+    ],
+    dtype=np.float32,
+)
 test_cases.append(("Saturation test", saturate_colors))
 
 all_passed = True
@@ -123,8 +137,9 @@ for name, colors in test_cases:
 
     # Full pipeline with identity LUT (quantized to 1024 levels)
     identity_lut = np.linspace(0, 1, 1024, dtype=np.float32)
-    fused_color_full_pipeline_numba(colors, identity_lut, identity_lut, identity_lut,
-                                     1.3, 1.1, 0.9, out_full)
+    fused_color_full_pipeline_numba(
+        colors, identity_lut, identity_lut, identity_lut, 1.3, 1.1, 0.9, out_full
+    )
 
     # Skip LUT version (no quantization - more accurate!)
     fused_color_pipeline_skip_lut_numba(colors, 1.3, 1.1, 0.9, out_skip)
@@ -177,12 +192,14 @@ for small_size in [256, 128, 64]:
         out_small = np.empty_like(colors)
 
         # Large LUT (nearest neighbor)
-        fused_color_full_pipeline_numba(colors, large_lut, large_lut, large_lut,
-                                         1.3, 1.1, 0.9, out_large)
+        fused_color_full_pipeline_numba(
+            colors, large_lut, large_lut, large_lut, 1.3, 1.1, 0.9, out_large
+        )
 
         # Small LUT (interpolated)
-        fused_color_pipeline_interp_lut_numba(colors, small_lut, small_lut, small_lut,
-                                               1.3, 1.1, 0.9, out_small)
+        fused_color_pipeline_interp_lut_numba(
+            colors, small_lut, small_lut, small_lut, 1.3, 1.1, 0.9, out_small
+        )
 
         # Compare
         diff = np.abs(out_large - out_small)
@@ -196,7 +213,7 @@ for small_size in [256, 128, 64]:
 
         print(f"    {name:20s}: max_diff={max_diff:.4f}, mean_diff={mean_diff:.4f} {status}")
 
-print(f"\nTest 3 result: PASS (interpolation introduces acceptable differences)")
+print("\nTest 3 result: PASS (interpolation introduces acceptable differences)")
 print("NOTE: Interpolated LUT provides BETTER quality (smoother) than nearest neighbor")
 
 # ============================================================================
@@ -240,9 +257,9 @@ for name, colors in test_cases:
     result_skip = lut_large.apply_numpy(
         colors,
         temperature=0.5,  # Default
-        brightness=1.0,   # Default
-        contrast=1.0,     # Default
-        gamma=1.0,        # Default
+        brightness=1.0,  # Default
+        contrast=1.0,  # Default
+        gamma=1.0,  # Default
         saturation=1.3,
         shadows=1.1,
         highlights=0.9,
@@ -255,15 +272,15 @@ for name, colors in test_cases:
 
     # Verify values are in range
     if result_large.min() < 0 or result_large.max() > 1:
-        print(f"    [FAIL] Large LUT out of range!")
+        print("    [FAIL] Large LUT out of range!")
         test_passed = False
         all_passed = False
     if result_small.min() < 0 or result_small.max() > 1:
-        print(f"    [FAIL] Small LUT out of range!")
+        print("    [FAIL] Small LUT out of range!")
         test_passed = False
         all_passed = False
     if result_skip.min() < 0 or result_skip.max() > 1:
-        print(f"    [FAIL] Skip LUT out of range!")
+        print("    [FAIL] Skip LUT out of range!")
         test_passed = False
         all_passed = False
 

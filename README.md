@@ -4,9 +4,10 @@
 
 ### High-Performance Processing for 3D Gaussian Splatting
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](#testing)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
 **1,389M colors/sec | 698M Gaussians/sec transforms | 62M Gaussians/sec filtering | Pure NumPy with Numba**
 
@@ -52,14 +53,19 @@
   - **Multi-layer masks**: FilterMasks API with 55x faster Numba-optimized combination (0.026ms vs 1.447ms)
   - **Optimizations**: Fused kernels, parallel scatter pattern, nogil=True, adaptive mask combination
 
+- **Optional Pre-Activation Stage**: Prepare log-domain GSData for downstream GPU/CPU pipelines
+  - Fused Numba kernel (`apply_pre_activations`) exponentiates scales, sigmoids opacities, and normalizes quaternions in a single pass
+  - 1.3ms for 1M Gaussians on a laptop CPU (≈750M Gaussians/sec), eliminating three separate NumPy sweeps
+  - Works in-place with automatic dtype/contiguity fixes for data from `gsply.plyread`
+
 - **Composable Pipeline**: Chain operations with lazy execution
   - **Built-in presets**: 7 color grading looks (cinematic, warm, cool, vibrant, muted, dramatic)
   - **Functional API**: One-line color adjustments and preset application
   - **Custom operations**: Add user-defined processing steps
 
 - **Pure Python**: NumPy + Numba JIT (no C++ compilation required)
-- **Type-safe**: Full type hints for Python 3.10+
-- **Production-ready**: Comprehensive test suite, CI/CD pipeline, detailed documentation
+- **Type-safe**: Full type hints with Python 3.12+ syntax (PEP 695)
+- **Production-ready**: Comprehensive test suite, CI/CD pipeline, pre-commit hooks, detailed documentation
 
 ---
 
@@ -150,6 +156,27 @@ data = (
 # Save
 gsply.plywrite("output.ply", data)
 ```
+
+### GSData Pre-Activation (Optional)
+
+When your training or authoring pipeline stores Gaussians in log-space (log scales, logit opacities, non-normalized quats), fuse the conversion into a single CPU pass before uploading to the renderer:
+
+```python
+import gsply
+from gspro import apply_pre_activations
+
+data = gsply.plyread("scene_raw_logits.ply")
+
+apply_pre_activations(
+    data,
+    min_scale=1e-4,
+    max_scale=100.0,
+    min_quat_norm=1e-8,
+    inplace=True,
+)
+```
+
+`apply_pre_activations` exponentiates + clamps the scales, runs a numerically stable sigmoid on logit opacities, and normalizes quaternions—processing ~1M Gaussians in ≈1.3 ms (≈750M/sec). The helper automatically ensures float32 and contiguous buffers, so it pairs nicely with the zero-copy arrays returned by `gsply.plyread`.
 
 ### Using Color Presets
 
@@ -846,12 +873,38 @@ cd gspro
 # Install in development mode
 pip install -e .[dev]
 
+# Set up pre-commit hooks (recommended)
+pre-commit install
+
 # Run tests
 pytest tests/ -v
 
 # Run with coverage
 pytest tests/ -v --cov=gspro --cov-report=html
 ```
+
+### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to maintain code quality:
+
+```bash
+# Install hooks (one-time setup)
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+
+# Update hook versions
+pre-commit autoupdate
+```
+
+The pre-commit hooks will automatically:
+- Run ruff linting with auto-fix
+- Format code with ruff
+- Check for common issues (trailing whitespace, YAML syntax, etc.)
+- Validate Python syntax
+
+See [.github/PRE_COMMIT_SETUP.md](.github/PRE_COMMIT_SETUP.md) for detailed setup instructions.
 
 ### Project Structure
 

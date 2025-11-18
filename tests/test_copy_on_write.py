@@ -151,9 +151,7 @@ class TestCopyOnWrite:
         """Test that LUT cache is still deep copied (not shared)."""
         from gspro import Param
 
-        template = Color.template(
-            brightness=Param("b", default=1.2, range=(0.5, 2.0))
-        )
+        template = Color.template(brightness=Param("b", default=1.2, range=(0.5, 2.0)))
 
         # Build cache
         n = 100

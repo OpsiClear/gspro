@@ -49,7 +49,7 @@ for _ in range(100):
 
 profiler.disable()
 stats = pstats.Stats(profiler)
-stats.sort_stats('cumulative')
+stats.sort_stats("cumulative")
 print("\nTop 10 time consumers:")
 stats.print_stats(10)
 
@@ -64,7 +64,7 @@ for _ in range(100):
 
 profiler2.disable()
 stats2 = pstats.Stats(profiler2)
-stats2.sort_stats('cumulative')
+stats2.sort_stats("cumulative")
 print("\nTop 10 time consumers:")
 stats2.print_stats(10)
 
@@ -80,7 +80,9 @@ from gspro.numba_ops import fused_color_full_pipeline_numba
 out = np.empty_like(colors_np)
 
 # Compile LUTs
-lut._compile_independent_luts_numpy(**{k: v for k, v in params.items() if k in ["temperature", "brightness", "contrast", "gamma"]})
+lut._compile_independent_luts_numpy(
+    **{k: v for k, v in params.items() if k in ["temperature", "brightness", "contrast", "gamma"]}
+)
 
 # Warmup
 fused_color_full_pipeline_numba(
@@ -110,7 +112,7 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 kernel_time = np.mean(times)
-print(f"  Time: {kernel_time:.3f} ms ({N/kernel_time*1000/1e6:.1f} M/s)")
+print(f"  Time: {kernel_time:.3f} ms ({N / kernel_time * 1000 / 1e6:.1f} M/s)")
 
 # Test apply()
 print("\n[apply() call]:")
@@ -121,7 +123,7 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 apply_time = np.mean(times)
-print(f"  Time: {apply_time:.3f} ms ({N/apply_time*1000/1e6:.1f} M/s)")
+print(f"  Time: {apply_time:.3f} ms ({N / apply_time * 1000 / 1e6:.1f} M/s)")
 
 # Test apply_numpy()
 print("\n[apply_numpy() call]:")
@@ -132,7 +134,7 @@ for _ in range(100):
     times.append((time.perf_counter() - start) * 1000)
 
 apply_numpy_time = np.mean(times)
-print(f"  Time: {apply_numpy_time:.3f} ms ({N/apply_numpy_time*1000/1e6:.1f} M/s)")
+print(f"  Time: {apply_numpy_time:.3f} ms ({N / apply_numpy_time * 1000 / 1e6:.1f} M/s)")
 
 # Overhead analysis
 print("\n" + "=" * 80)
@@ -145,13 +147,13 @@ apply() wrapper:            {apply_time:.3f} ms
 apply_numpy() wrapper:      {apply_numpy_time:.3f} ms
 
 Overhead:
-  apply() overhead:         {apply_time - kernel_time:.3f} ms ({(apply_time - kernel_time)/apply_time*100:.1f}%)
-  apply_numpy() overhead:   {apply_numpy_time - kernel_time:.3f} ms ({(apply_numpy_time - kernel_time)/apply_numpy_time*100:.1f}%)
+  apply() overhead:         {apply_time - kernel_time:.3f} ms ({(apply_time - kernel_time) / apply_time * 100:.1f}%)
+  apply_numpy() overhead:   {apply_numpy_time - kernel_time:.3f} ms ({(apply_numpy_time - kernel_time) / apply_numpy_time * 100:.1f}%)
 
 Conclusion:
   Both apply() and apply_numpy() are already using the ultra-fused kernel!
   The remaining overhead is minimal (parameter validation, LUT caching checks, etc.)
 
   The real performance is: {kernel_time:.3f} ms for {N:,} colors
-  Throughput: {N/kernel_time*1000/1e6:.0f} M colors/sec
+  Throughput: {N / kernel_time * 1000 / 1e6:.0f} M colors/sec
 """)

@@ -61,13 +61,14 @@ __version__ = "0.2.0"
 from gsply import GSData
 
 # Color processing pipeline
+from gspro.activations import apply_pre_activations
 from gspro.color.pipeline import Color
 from gspro.color.presets import ColorPreset
 
 # Scene composition utilities
 from gspro.compose import (
-    concatenate,
     compose_with_transforms,
+    concatenate,
     deduplicate,
     merge_scenes,
     split_by_region,
@@ -146,4 +147,5 @@ __all__ = [
     "linear_interp_1d",
     "nearest_neighbor_1d",
     "multiply_opacity",
+    "apply_pre_activations",
 ]

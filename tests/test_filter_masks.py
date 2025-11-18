@@ -279,14 +279,8 @@ class TestFilterMasksIntegration:
         masks = FilterMasks(sample_data)
 
         # Add complex filters
-        masks.add(
-            "strict",
-            Filter().min_opacity(0.7).max_scale(1.5).within_sphere(radius=0.6)
-        )
-        masks.add(
-            "loose",
-            Filter().min_opacity(0.2).max_scale(3.0)
-        )
+        masks.add("strict", Filter().min_opacity(0.7).max_scale(1.5).within_sphere(radius=0.6))
+        masks.add("loose", Filter().min_opacity(0.2).max_scale(3.0))
 
         # Apply with OR (either strict or loose passes)
         filtered = masks.apply(mode="or", inplace=False)

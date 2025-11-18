@@ -76,7 +76,7 @@ for scenario_name, data_device, lut_device in scenarios:
     total_time = (time.perf_counter() - start) / iterations * 1000
 
     print(f"  Total time:      {total_time:.3f} ms")
-    print(f"  Throughput:      {N/total_time*1000/1e6:.1f} M colors/sec")
+    print(f"  Throughput:      {N / total_time * 1000 / 1e6:.1f} M colors/sec")
     print(f"  Result device:   {result.device}")
     print(f"  Input device:    {colors.device}")
 
@@ -111,7 +111,7 @@ if torch.cuda.is_available():
         torch.cuda.synchronize()
         times.append((time.perf_counter() - start) * 1000)
     phase1_time = np.mean(times)
-    print(f"  Time: {phase1_time:.3f} ms ({N/phase1_time*1000/1e6:.1f} M/s)")
+    print(f"  Time: {phase1_time:.3f} ms ({N / phase1_time * 1000 / 1e6:.1f} M/s)")
 
     # Test Phase 2 only (standard PyTorch path)
     print("\n[Phase 2: Saturation + Shadows/Highlights (PyTorch)]")
@@ -122,7 +122,9 @@ if torch.cuda.is_available():
         start = time.perf_counter()
 
         # Saturation
-        luminance = 0.299 * test_colors[:, 0] + 0.587 * test_colors[:, 1] + 0.114 * test_colors[:, 2]
+        luminance = (
+            0.299 * test_colors[:, 0] + 0.587 * test_colors[:, 1] + 0.114 * test_colors[:, 2]
+        )
         luminance = luminance.unsqueeze(1).expand_as(test_colors)
         test_colors = torch.lerp(luminance, test_colors, 1.3).clamp(0, 1)
 
@@ -139,13 +141,11 @@ if torch.cuda.is_available():
         torch.cuda.synchronize()
         times.append((time.perf_counter() - start) * 1000)
     phase2_time = np.mean(times)
-    print(f"  Time: {phase2_time:.3f} ms ({N/phase2_time*1000/1e6:.1f} M/s)")
+    print(f"  Time: {phase2_time:.3f} ms ({N / phase2_time * 1000 / 1e6:.1f} M/s)")
 
-    print(f"\n[Combined estimate]")
+    print("\n[Combined estimate]")
     print(f"  Phase 1 + Phase 2: {phase1_time + phase2_time:.3f} ms")
-    print(
-        f"  Throughput: {N/(phase1_time + phase2_time)*1000/1e6:.1f} M/s"
-    )
+    print(f"  Throughput: {N / (phase1_time + phase2_time) * 1000 / 1e6:.1f} M/s")
 
 # Memory bandwidth analysis
 print("\n" + "=" * 80)
@@ -158,10 +158,10 @@ lut_bytes = 3 * 1024 * 4  # Three 1D LUTs (negligible)
 total_bytes = bytes_read + bytes_written
 
 print(f"\nFor {N:,} colors:")
-print(f"  Data read:    {bytes_read/1e6:.2f} MB")
-print(f"  Data written: {bytes_written/1e6:.2f} MB")
-print(f"  LUT data:     {lut_bytes/1e3:.2f} KB (cached)")
-print(f"  Total:        {total_bytes/1e6:.2f} MB")
+print(f"  Data read:    {bytes_read / 1e6:.2f} MB")
+print(f"  Data written: {bytes_written / 1e6:.2f} MB")
+print(f"  LUT data:     {lut_bytes / 1e3:.2f} KB (cached)")
+print(f"  Total:        {total_bytes / 1e6:.2f} MB")
 
 # Theoretical limits
 cpu_bandwidth = 20000  # MB/s (typical DDR4)
@@ -170,11 +170,9 @@ gpu_bandwidth = 400000  # MB/s (typical GPU like RTX 3080)
 cpu_limit = total_bytes / cpu_bandwidth * 1000  # ms
 gpu_limit = total_bytes / gpu_bandwidth * 1000  # ms
 
-print(f"\nTheoretical limits (memory bandwidth only):")
-print(f"  CPU (DDR4 ~20 GB/s):   {cpu_limit:.3f} ms ({N/cpu_limit*1000/1e6:.0f} M/s)")
-print(
-    f"  GPU (GDDR6 ~400 GB/s): {gpu_limit:.3f} ms ({N/gpu_limit*1000/1e6:.0f} M/s)"
-)
+print("\nTheoretical limits (memory bandwidth only):")
+print(f"  CPU (DDR4 ~20 GB/s):   {cpu_limit:.3f} ms ({N / cpu_limit * 1000 / 1e6:.0f} M/s)")
+print(f"  GPU (GDDR6 ~400 GB/s): {gpu_limit:.3f} ms ({N / gpu_limit * 1000 / 1e6:.0f} M/s)")
 
 print("\n" + "=" * 80)
 print("OPTIMIZATION OPPORTUNITIES")

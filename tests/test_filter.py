@@ -277,9 +277,7 @@ class TestApplyFilter:
         # Calculate expected mask
         bounds = calculate_scene_bounds(positions)
         half_sizes = bounds.sizes * 0.5 * 0.5
-        expected_mask = np.all(
-            (positions >= -half_sizes) & (positions <= half_sizes), axis=1
-        )
+        expected_mask = np.all((positions >= -half_sizes) & (positions <= half_sizes), axis=1)
 
         np.testing.assert_array_equal(mask, expected_mask)
 
@@ -295,9 +293,7 @@ class TestApplyFilter:
             opacity_threshold=0.3,
             max_scale=1.5,
         )
-        mask = _apply_filter(
-            positions, opacities=opacities, scales=scales, config=config
-        )
+        mask = _apply_filter(positions, opacities=opacities, scales=scales, config=config)
 
         # All filters use AND logic, so result should be subset
         opacity_mask = opacities >= 0.3
@@ -355,8 +351,7 @@ class TestFilteringIntegration:
             Filter()
             .within_sphere(radius=bounds.max_size * 0.8)
             .min_opacity(0.1)
-            .max_scale(threshold)
-            (sample_gsdata, inplace=False)
+            .max_scale(threshold)(sample_gsdata, inplace=False)
         )
 
         # Verify results

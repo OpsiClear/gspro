@@ -3,7 +3,6 @@ Tests for NumPy implementation of quaternion utility functions.
 """
 
 import numpy as np
-import pytest
 
 from gspro.transform import (
     axis_angle_to_quaternion,
@@ -13,7 +12,6 @@ from gspro.transform import (
     quaternion_to_rotation_matrix,
     rotation_matrix_to_quaternion,
 )
-
 
 # ============================================================================
 # Quaternion Operations Tests

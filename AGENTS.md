@@ -891,6 +891,31 @@ filtered = data[mask]  # or data.copy_slice(mask)
 data.add(other_data)  # 1.9x faster than manual np.concatenate
 ```
 
+### GSData Pre-Activation Stage
+
+Some training/export pipelines store Gaussians in log-domain form (log scales, logit opacities, non-unit quaternions). Before running GPU splatting or color/transform/filter stages, normalize once on CPU via the fused helper in `src/gspro/activations.py`:
+
+```python
+from gspro import apply_pre_activations
+
+data = gsply.plyread("scene_logits.ply")
+
+# Single pass: scales = exp+clip, opacities = sigmoid, quats = normalized
+apply_pre_activations(
+    data,
+    min_scale=1e-4,
+    max_scale=100.0,
+    min_quat_norm=1e-8,
+    inplace=True,
+)
+```
+
+Implementation details:
+- Numba kernel `_activate_gaussians_numba` processes ~1M Gaussians in ~1.3 ms (≈750M/s).
+- Helper auto-coerces arrays to float32 + contiguous layout, which is critical because `gsply.plyread()` returns zero-copy strided buffers.
+- Parameter validation prevents degenerate ranges (e.g., `max_scale < min_scale`).
+- Call this once per dataset; the pipeline can stay in-place to keep zero-copy behavior.
+
 ## CI/CD Pipeline
 
 GitHub Actions workflows in `.github/workflows/`:

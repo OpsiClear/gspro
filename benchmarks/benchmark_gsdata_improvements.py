@@ -52,7 +52,7 @@ def benchmark_filter_shn():
     n_runs = 10
 
     print(f"Scene size: {n_gaussians:,} Gaussians")
-    print(f"SH degree: 2 (8 bands)")
+    print("SH degree: 2 (8 bands)")
     print(f"Runs: {n_runs}")
 
     # Create scene with SH degree 2
@@ -73,16 +73,16 @@ def benchmark_filter_shn():
     avg_time = np.mean(times)
     std_time = np.std(times)
 
-    print(f"\nFilter with shN (Numba kernel):")
+    print("\nFilter with shN (Numba kernel):")
     print(f"  Time: {avg_time:.2f} +/- {std_time:.2f} ms")
     print(f"  Kept: {len(result):,}/{n_gaussians:,} Gaussians")
 
     # Check that shN was properly filtered
     if result.shN is not None:
         print(f"  shN shape: {result.shN.shape}")
-        print(f"  [OK] shN properly filtered")
+        print("  [OK] shN properly filtered")
     else:
-        print(f"  [FAIL] shN is None!")
+        print("  [FAIL] shN is None!")
 
     return avg_time
 
@@ -137,10 +137,10 @@ def benchmark_transform_contiguity():
     avg_with = np.mean(times_with_contig)
     std_with = np.std(times_with_contig)
 
-    print(f"\nWithout make_contiguous (default):")
+    print("\nWithout make_contiguous (default):")
     print(f"  Time: {avg_no:.2f} +/- {std_no:.2f} ms")
 
-    print(f"\nWith make_contiguous:")
+    print("\nWith make_contiguous:")
     print(f"  Time: {avg_with:.2f} +/- {std_with:.2f} ms")
 
     overhead = ((avg_with - avg_no) / avg_no) * 100
@@ -193,21 +193,21 @@ def benchmark_concatenate():
     avg_add = np.mean(times_add)
     std_add = np.std(times_add)
 
-    print(f"\nBulk concatenate():")
+    print("\nBulk concatenate():")
     print(f"  Time: {avg_concat:.2f} +/- {std_concat:.2f} ms")
 
-    print(f"\nRepeated add():")
+    print("\nRepeated add():")
     print(f"  Time: {avg_add:.2f} +/- {std_add:.2f} ms")
 
     speedup = avg_add / avg_concat
     print(f"\nSpeedup: {speedup:.2f}x faster")
 
     if speedup > 1.5:
-        print(f"  [OK] Significant speedup achieved")
+        print("  [OK] Significant speedup achieved")
     elif speedup > 1.0:
-        print(f"  [INFO] Modest speedup")
+        print("  [INFO] Modest speedup")
     else:
-        print(f"  [WARNING] No speedup or slower!")
+        print("  [WARNING] No speedup or slower!")
 
     return speedup
 
@@ -226,17 +226,17 @@ def main():
     print("SUMMARY")
     print("=" * 60)
 
-    print(f"\n[1] Filter shN:")
-    print(f"    - Numba kernel handles shN properly")
+    print("\n[1] Filter shN:")
+    print("    - Numba kernel handles shN properly")
     print(f"    - Time: {filter_time:.2f} ms (100K Gaussians)")
 
-    print(f"\n[2] Transform make_contiguous:")
+    print("\n[2] Transform make_contiguous:")
     print(f"    - Default (False): {transform_no:.2f} ms")
     print(f"    - With conversion: {transform_with:.2f} ms")
     overhead_pct = ((transform_with - transform_no) / transform_no) * 100
     print(f"    - Overhead avoided: {overhead_pct:.1f}%")
 
-    print(f"\n[3] Scene concatenation:")
+    print("\n[3] Scene concatenation:")
     print(f"    - Speedup: {concat_speedup:.2f}x faster")
 
     print("\n" + "=" * 60)

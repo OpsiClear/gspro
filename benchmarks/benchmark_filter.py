@@ -61,7 +61,7 @@ def benchmark_scene_bounds(n: int = 1_000_000, iterations: int = 100):
     times = []
     for _ in range(iterations):
         start = time.perf_counter()
-        bounds = calculate_scene_bounds(positions)
+        calculate_scene_bounds(positions)
         end = time.perf_counter()
         times.append((end - start) * 1000)  # Convert to ms
 
@@ -89,7 +89,7 @@ def benchmark_recommended_scale(n: int = 1_000_000, iterations: int = 100):
     times = []
     for _ in range(iterations):
         start = time.perf_counter()
-        threshold = calculate_recommended_max_scale(scales)
+        calculate_recommended_max_scale(scales)
         end = time.perf_counter()
         times.append((end - start) * 1000)
 
@@ -388,7 +388,7 @@ def benchmark_batch_scaling():
         times = []
         for _ in range(20):
             start = time.perf_counter()
-            mask = apply_filter(
+            apply_filter(
                 data["positions"],
                 opacities=data["opacities"],
                 scales=data["scales"],

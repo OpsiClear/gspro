@@ -92,9 +92,7 @@ def calculate_scene_bounds(data: GSData | np.ndarray) -> SceneBounds:
     return SceneBounds(min_point, max_point)
 
 
-def calculate_recommended_max_scale(
-    data: GSData | np.ndarray, percentile: float = 99.5
-) -> float:
+def calculate_recommended_max_scale(data: GSData | np.ndarray, percentile: float = 99.5) -> float:
     """
     Calculate recommended maximum scale threshold using percentiles.
 

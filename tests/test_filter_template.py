@@ -42,9 +42,7 @@ class TestFilterTemplate:
 
     def test_template_applies_defaults(self, sample_gsdata):
         """Test that template applies default values."""
-        template = Filter.template(
-            min_opacity=Param("o", default=0.5, range=(0.0, 1.0))
-        )
+        template = Filter.template(min_opacity=Param("o", default=0.5, range=(0.0, 1.0)))
 
         # Apply without params (should use defaults)
         result = template(sample_gsdata, inplace=False)
@@ -55,9 +53,7 @@ class TestFilterTemplate:
 
     def test_template_parameter_override(self, sample_gsdata):
         """Test overriding template parameters at runtime."""
-        template = Filter.template(
-            min_opacity=Param("o", default=0.1, range=(0.0, 1.0))
-        )
+        template = Filter.template(min_opacity=Param("o", default=0.1, range=(0.0, 1.0)))
 
         # Apply with different threshold
         result1 = template(sample_gsdata, inplace=False, params={"o": 0.3})
@@ -89,9 +85,7 @@ class TestFilterTemplate:
 
     def test_template_cache_miss(self, sample_gsdata):
         """Test cache miss with different parameters."""
-        template = Filter.template(
-            min_opacity=Param("o", default=0.1, range=(0.0, 1.0))
-        )
+        template = Filter.template(min_opacity=Param("o", default=0.1, range=(0.0, 1.0)))
 
         # First call
         template(sample_gsdata, inplace=False, params={"o": 0.2})
@@ -106,18 +100,14 @@ class TestFilterTemplate:
 
     def test_template_unknown_parameter(self, sample_gsdata):
         """Test error on unknown parameter."""
-        template = Filter.template(
-            min_opacity=Param("o", default=0.1, range=(0.0, 1.0))
-        )
+        template = Filter.template(min_opacity=Param("o", default=0.1, range=(0.0, 1.0)))
 
         with pytest.raises(ValueError, match="Unknown parameter 'unknown'"):
             template(sample_gsdata, params={"unknown": 0.5})
 
     def test_template_parameter_out_of_range(self, sample_gsdata):
         """Test error on parameter out of range."""
-        template = Filter.template(
-            min_opacity=Param("o", default=0.5, range=(0.1, 0.9))
-        )
+        template = Filter.template(min_opacity=Param("o", default=0.5, range=(0.1, 0.9)))
 
         with pytest.raises(ValueError, match="outside valid range"):
             template(sample_gsdata, params={"o": 1.5})
@@ -131,9 +121,7 @@ class TestFilterTemplate:
 
     def test_template_reset_clears_cache(self):
         """Test that reset() clears the parameter cache."""
-        template = Filter.template(
-            min_opacity=Param("o", default=0.1, range=(0.0, 1.0))
-        )
+        template = Filter.template(min_opacity=Param("o", default=0.1, range=(0.0, 1.0)))
 
         # Build cache
         data = GSData(

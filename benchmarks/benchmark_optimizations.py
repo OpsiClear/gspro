@@ -39,7 +39,7 @@ def benchmark_operation(name, func, iterations=200):
 
     for _ in range(iterations):
         start = time.perf_counter()
-        result = func()
+        func()
         end = time.perf_counter()
         times.append((end - start) * 1000)
 
@@ -169,7 +169,7 @@ def main():
     print(f"\n{'Operation':<40} {'Throughput':>15}")
     print("-" * 80)
     for r in results:
-        throughput = n / (r['mean'] / 1000) / 1e6
+        throughput = n / (r["mean"] / 1000) / 1e6
         print(f"{r['name']:<40} {throughput:>10.1f} M/s")
 
     print("\n" + "=" * 80)
@@ -184,16 +184,16 @@ def main():
     unfused_time = opacity_only["mean"] + scale_only["mean"]
     speedup = unfused_time / fused["mean"]
 
-    print(f"\nFused kernel performance:")
+    print("\nFused kernel performance:")
     print(f"  Opacity only:       {opacity_only['mean']:.2f}ms")
     print(f"  Scale only:         {scale_only['mean']:.2f}ms")
     print(f"  Unfused total:      {unfused_time:.2f}ms")
     print(f"  Fused (actual):     {fused['mean']:.2f}ms")
-    print(f"  Speedup:            {speedup:.2f}x ({(speedup-1)*100:.1f}% faster)")
+    print(f"  Speedup:            {speedup:.2f}x ({(speedup - 1) * 100:.1f}% faster)")
 
     # Full pipeline comparison
     full_pipeline = next(r for r in results if "Full filter_gaussians" in r["name"])
-    print(f"\nFull pipeline performance:")
+    print("\nFull pipeline performance:")
     print(f"  Mean:               {full_pipeline['mean']:.2f}ms")
     print(f"  Throughput:         {n / (full_pipeline['mean'] / 1000) / 1e6:.1f} M/s")
     print(f"  Min time:           {full_pipeline['min']:.2f}ms")

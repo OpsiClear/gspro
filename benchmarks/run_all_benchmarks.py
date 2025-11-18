@@ -34,9 +34,7 @@ for benchmark in benchmarks:
 
     benchmark_path = benchmark_dir / benchmark
     result = subprocess.run(
-        [sys.executable, str(benchmark_path)],
-        capture_output=False,
-        cwd=str(benchmark_dir)
+        [sys.executable, str(benchmark_path)], capture_output=False, cwd=str(benchmark_dir)
     )
 
     if result.returncode != 0:

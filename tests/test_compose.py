@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from gsply import GSData
 
-from gspro import Transform, concatenate, compose_with_transforms, merge_scenes, split_by_region
+from gspro import Transform, compose_with_transforms, concatenate, merge_scenes, split_by_region
 from gspro.compose import deduplicate
 
 
